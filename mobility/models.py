@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 class Utente(models.Model):
     # Opzioni per il metodo di pagamento (puoi espanderle in futuro)
@@ -67,23 +68,65 @@ class Area_Urbana(models.Model):
 
 
 class Corsa(models.Model):
-    # on_delete=models.CASCADE significa che se elimini un utente, elimini anche lo storico delle sue corse. 
-    # (In un'app reale si userebbe models.SET_NULL per non perdere i dati contabili, ma per ora va benissimo così).
     utente = models.ForeignKey(Utente, on_delete=models.CASCADE, related_name='corse')
     mezzo = models.ForeignKey(Mezzo, on_delete=models.CASCADE, related_name='corse')
-    
-    # default=timezone.now registra automaticamente l'ora esatta in cui viene creata la corsa
     inizio = models.DateTimeField(default=timezone.now)
-    
-    # null=True, blank=True sono fondamentali: quando la corsa inizia, non ha ancora una fine!
     fine = models.DateTimeField(null=True, blank=True)
-    
-    # Usiamo DecimalField per i soldi per evitare errori di arrotondamento che si hanno con FloatField
     costo_totale = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
 
-    class Meta:
+    class Meta: 
         verbose_name_plural = "Corse"
 
-    def __str__(self):
-        stato_corsa = "In corso" if not self.fine else f"Terminata - {self.costo_totale}€"
-        return f"Corsa #{self.id}: {self.utente.cognome} su {self.mezzo.tipo} [{stato_corsa}]"
+    @classmethod
+    def avvia_corsa(cls, utente, mezzo):
+        """Controlla i requisiti e avvia una nuova corsa."""
+        if utente.sospensione:
+            raise ValidationError("Impossibile avviare la corsa: l'account utente è sospeso.")
+        
+        if mezzo.stato != 'DISPONIBILE':
+            raise ValidationError(f"Il mezzo selezionato non è disponibile (Stato attuale: {mezzo.stato}).")
+            
+        if mezzo.tipo == 'AUTO' and not utente.patente_verificata:
+            raise ValidationError("È richiesta la patente verificata per noleggiare un'auto.")
+            
+        if mezzo.batteria < 10:
+            raise ValidationError("Batteria troppo bassa per avviare il noleggio.")
+
+        # Aggiorna lo stato del mezzo
+        mezzo.stato = 'IN_USO'
+        mezzo.save()
+
+        # Crea e restituisce la corsa
+        return cls.objects.create(utente=utente, mezzo=mezzo)
+
+    def termina_corsa(self):
+        """Termina la corsa, calcola i minuti e il costo totale."""
+        if self.fine is not None:
+            raise ValidationError("Questa corsa è già stata terminata.")
+
+        self.fine = timezone.now()
+        
+        # Calcola la durata in minuti
+        durata_secondi = (self.fine - self.inizio).total_seconds()
+        durata_minuti = durata_secondi / 60.0
+
+        # Tariffe al minuto (potresti spostarle in un file settings in futuro)
+        tariffe = {
+            'BICI': 0.15,     # 0.15€ al minuto
+            'SCOOTER': 0.20,  # 0.20€ al minuto
+            'AUTO': 0.35      # 0.35€ al minuto
+        }
+        
+        tariffa_applicata = tariffe.get(self.mezzo.tipo, 0.20)
+        
+        # Calcola il costo totale arrotondato a due decimali
+        costo = durata_minuti * tariffa_applicata
+        self.costo_totale = round(costo, 2)
+        self.save()
+
+        # Libera il mezzo
+        self.mezzo.stato = 'DISPONIBILE'
+        self.mezzo.save()
+
+    def __str__(self): 
+        return f"Corsa #{self.id} - {self.utente} su {self.mezzo.tipo}"
