@@ -1,15 +1,24 @@
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+# 1. IMPORTANTE: Importiamo il modello User nativo di Django per l'autenticazione JWT
+from django.contrib.auth.models import User
 
 class Utente(models.Model):
-    # Opzioni per il metodo di pagamento (puoi espanderle in futuro)
+    # Opzioni per il metodo di pagamento
     METODI_PAGAMENTO = [
         ('CARTA', 'Carta di Credito/Debito'),
         ('PAYPAL', 'PayPal'),
         ('APPLE_PAY', 'Apple Pay'),
         ('GOOGLE_PAY', 'Google Pay'),
     ]
+
+    # 2. IMPORTANTE: Creiamo il collegamento biunivoco (OneToOne) con l'User di Django
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='profilo_utente'
+    )
 
     nome = models.CharField(max_length=50)
     cognome = models.CharField(max_length=50)
@@ -33,7 +42,7 @@ class Mezzo(models.Model):
         ('DISPONIBILE', 'Disponibile'),
         ('PRENOTATO', 'Prenotato'),
         ('IN_USO', 'In Uso'),
-        ('MANUTENZIONE', 'In Manutenzione'), # Aggiunto come 'best practice' per mezzi guasti
+        ('MANUTENZIONE', 'In Manutenzione'),
     ]
 
     tipo = models.CharField(max_length=20, choices=TIPI_MEZZO)
@@ -43,7 +52,7 @@ class Mezzo(models.Model):
     longitudine = models.FloatField()
 
     class Meta:
-        verbose_name_plural = "Mezzi" # Evita che Django scriva "Mezzos" nel pannello admin
+        verbose_name_plural = "Mezzi"
 
     def __str__(self):
         return f"{self.get_tipo_display()} #{self.id} ({self.batteria}% - {self.get_stato_display()})"
@@ -92,41 +101,36 @@ class Corsa(models.Model):
         if mezzo.batteria < 10:
             raise ValidationError("Batteria troppo bassa per avviare il noleggio.")
 
-        # Aggiorna lo stato del mezzo
         mezzo.stato = 'IN_USO'
         mezzo.save()
 
-        # Crea e restituisce la corsa
         return cls.objects.create(utente=utente, mezzo=mezzo)
 
-    def termina_corsa(self):
+    def terminates_corsa(self):
         """Termina la corsa, calcola i minuti e il costo totale."""
         if self.fine is not None:
             raise ValidationError("Questa corsa è già stata terminata.")
 
         self.fine = timezone.now()
         
-        # Calcola la durata in minuti
         durata_secondi = (self.fine - self.inizio).total_seconds()
         durata_minuti = durata_secondi / 60.0
 
-        # Tariffe al minuto (potresti spostarle in un file settings in futuro)
         tariffe = {
-            'BICI': 0.15,     # 0.15€ al minuto
-            'SCOOTER': 0.20,  # 0.20€ al minuto
-            'AUTO': 0.35      # 0.35€ al minuto
+            'BICI': 0.15,
+            ('SCOOTER'): 0.20,
+            ('AUTO'): 0.35
         }
         
         tariffa_applicata = tariffe.get(self.mezzo.tipo, 0.20)
         
-        # Calcola il costo totale arrotondato a due decimali
         costo = durata_minuti * tariffa_applicata
         self.costo_totale = round(costo, 2)
         self.save()
 
-        # Libera il mezzo
         self.mezzo.stato = 'DISPONIBILE'
         self.mezzo.save()
 
     def __str__(self): 
         return f"Corsa #{self.id} - {self.utente} su {self.mezzo.tipo}"
+    

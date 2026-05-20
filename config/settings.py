@@ -37,7 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'mobility'
+    
+    # 1. ESTENSIONI RICHIESTE: Aggiungiamo DRF e SimpleJWT
+    'rest_framework',
+    'rest_framework_simplejwt',
+    
+    # La tua applicazione core
+    'mobility',
 ]
 
 MIDDLEWARE = [
@@ -103,9 +109,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'it-it'  # Consigliato: Cambiato in italiano per i messaggi di DRF
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Rome'  # Consigliato per Smart Mobility: localizza i timestamp di inizio/fine corsa in Italia
 
 USE_I18N = True
 
@@ -121,3 +127,33 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# =============================================================================
+# 2. CONFIGURAZIONE DJANGO REST FRAMEWORK (Aggiunta dallo Sviluppatore 3)
+# =============================================================================
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # Diciamo a DRF che la priorità assoluta per riconoscere l'utente è il Token JWT
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        # Di base tutte le API richiedono che l'utente sia loggato. 
+        # Gli endpoint pubblici (come il login stesso) useranno eccezioni esplicite nelle viste.
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+# =============================================================================
+# 3. CONFIGURAZIONE SIMPLE JWT (Aggiunta dallo Sviluppatore 3)
+# =============================================================================
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    # Durata di validità del Token di Accesso (usato per fare le chiamate API sui mezzi/corse)
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    # Durata del Token di Refresh (usato per rigenerare l'Access Token senza rifare il login)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # L'header HTTP che il client (App/Sito) deve inviare (es: Authorization: Bearer <token>)
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
