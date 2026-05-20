@@ -106,7 +106,7 @@ class Corsa(models.Model):
 
         return cls.objects.create(utente=utente, mezzo=mezzo)
 
-    def terminates_corsa(self):
+    def termina_corsa(self):
         """Termina la corsa, calcola i minuti e il costo totale."""
         if self.fine is not None:
             raise ValidationError("Questa corsa è già stata terminata.")

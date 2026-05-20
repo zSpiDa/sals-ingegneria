@@ -140,7 +140,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         # Di base tutte le API richiedono che l'utente sia loggato. 
         # Gli endpoint pubblici (come il login stesso) useranno eccezioni esplicite nelle viste.
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',
     ),
 }
 
