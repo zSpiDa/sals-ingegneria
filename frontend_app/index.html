@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Mobility App</title>
+    
+    <!-- Tailwind CSS per il design mobile-first -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet JS per le mappe interattive -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Font Awesome per le icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Evita lo scroll dell'intera pagina */
+        }
+        #map {
+            height: calc(100vh - 130px); /* Spazio per Header e Bottom Nav */
+            width: 100%;
+            z-index: 10;
+        }
+        
+        /* Animazione per il pannello inferiore (Modal) */
+        .bottom-sheet {
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+
+        /* Notifiche Toast (Sostituto di Alert) */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .toast {
+            background: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            text-align: center;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen relative">
+
+    <header class="bg-blue-600 text-white p-4 shadow-md z-20 flex justify-between items-center">
+        <div class="text-xl font-bold tracking-tight">
+            <i class="fa-solid fa-bolt mr-2 text-yellow-300"></i>Mobility
+        </div>
+        <div class="bg-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+            <i class="fa-solid fa-user mr-1"></i> Utente 1
+        </div>
+    </header>
+
+    <!-- Contenitore Notifiche -->
+    <div id="toast-container"></div>
+
+    <main class="flex-grow relative">
+        <div id="map"></div>
+        
+        <!-- Pulsante Centra Mappa -->
+        <button onclick="centerMap()" class="absolute bottom-6 right-4 z-[400] bg-white p-3 rounded-full shadow-lg border border-gray-200 text-blue-600 hover:bg-gray-50 active:bg-gray-100">
+            <i class="fa-solid fa-location-crosshairs text-xl"></i>
+        </button>
+    </main>
+
+    <div id="vehicle-modal" class="bottom-sheet fixed bottom-[60px] left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] z-[500] p-6 pb-8 border-t border-gray-100">
+        <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div> <!-- Maniglia -->
+        
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 id="modal-title" class="text-2xl font-bold text-gray-800">Mezzo #1</h2>
+                <p id="modal-type" class="text-gray-500 font-medium">Bici Elettrica</p>
+            </div>
+            <div class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold flex items-center">
+                <i class="fa-solid fa-battery-three-quarters mr-1"></i> <span id="modal-battery">85%</span>
+            </div>
+        </div>
+
+        <div class="flex gap-4 mt-6">
+            <button onclick="prenotaMezzo()" class="flex-1 bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-xl shadow-sm border border-gray-200 active:bg-gray-200 transition">
+                <i class="fa-solid fa-calendar-check mr-2"></i>Prenota
+            </button>
+            <button onclick="sbloccaMezzo()" class="flex-1 bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-blue-500/30 active:bg-blue-700 transition">
+                <i class="fa-solid fa-unlock-keyhole mr-2"></i>Sblocca
+            </button>
+        </div>
+        
+        <button onclick="closeModal()" class="w-full mt-4 text-gray-400 font-medium py-2 active:text-gray-600">
+            Annulla
+        </button>
+    </div>
+
+    <nav class="bg-white border-t border-gray-200 flex justify-around p-2 pb-safe z-20 h-[60px]">
+        <button class="flex flex-col items-center justify-center w-full text-blue-600">
+            <i class="fa-solid fa-map-location-dot text-xl mb-1"></i>
+            <span class="text-[10px] font-bold uppercase tracking-wider">Mappa</span>
+        </button>
+        <button onclick="showToast('Storico corse: in arrivo nel prossimo sprint!')" class="flex flex-col items-center justify-center w-full text-gray-400 active:text-blue-600">
+            <i class="fa-solid fa-route text-xl mb-1"></i>
+            <span class="text-[10px] font-bold uppercase tracking-wider">Corse</span>
+        </button>
+        <button onclick="showToast('Impostazioni profilo: in arrivo nel prossimo sprint!')" class="flex flex-col items-center justify-center w-full text-gray-400 active:text-blue-600">
+            <i class="fa-solid fa-user-gear text-xl mb-1"></i>
+            <span class="text-[10px] font-bold uppercase tracking-wider">Profilo</span>
+        </button>
+    </nav>
+
+    <script>
+        // CONFIGURAZIONE: Inserisci l'URL del tuo server Django
+        // Se apri l'app dal telefono, metti l'IP locale del tuo PC (es: http://192.168.1.55:8000/api)
+        const API_BASE_URL = 'http://172.20.10.3:8000/api';
+        const ID_UTENTE_ATTUALE = 1; // Fissato a 1 per testare lo Sprint 1
+
+        let map;
+        let markers = [];
+        let selectedMezzoId = null;
+
+        // Inizializzazione Mappa
+        document.addEventListener('DOMContentLoaded', () => {
+            // Centrata su Milano (dove il seed_db crea i mezzi)
+            map = L.map('map', {zoomControl: false}).setView([45.4642, 9.1900], 14);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            caricaMezzi();
+        });
+
+        function showToast(message, isError = false) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if (isError) toast.style.backgroundColor = '#ef4444'; // Rosso Tailwind
+            else toast.style.backgroundColor = '#10b981'; // Verde Tailwind
+            
+            toast.innerText = message;
+            container.appendChild(toast);
+            
+            // Fade in
+            setTimeout(() => toast.style.opacity = '1', 10);
+            
+            // Rimuovi dopo 3 secondi
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function centerMap() {
+            map.setView([45.4642, 9.1900], 14);
+        }
+
+        function closeModal() {
+            document.getElementById('vehicle-modal').classList.remove('open');
+            selectedMezzoId = null;
+        }
+
+        async function caricaMezzi() {
+            try {
+                // Chiama l'API IF-U01
+                const response = await fetch(`${API_BASE_URL}/mezzi/?solo_disponibili=true`);
+                if (!response.ok) throw new Error("Errore di rete");
+                const mezzi = await response.json();
+                
+                // Pulisci i vecchi marker
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+
+                mezzi.forEach(mezzo => {
+                    // Scegli icona in base al tipo
+                    let iconHtml = '<i class="fa-solid fa-bicycle text-blue-600 bg-white p-2 rounded-full border-2 border-blue-600 shadow-md"></i>';
+                    if (mezzo.tipo === 'AUTO') iconHtml = '<i class="fa-solid fa-car text-purple-600 bg-white p-2 rounded-full border-2 border-purple-600 shadow-md"></i>';
+                    if (mezzo.tipo === 'SCOOTER') iconHtml = '<i class="fa-solid fa-bolt text-yellow-500 bg-white p-2 rounded-full border-2 border-yellow-500 shadow-md"></i>';
+
+                    const customIcon = L.divIcon({
+                        html: iconHtml,
+                        className: 'custom-div-icon',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    });
+
+                    const marker = L.marker([mezzo.latitudine, mezzo.longitudine], {icon: customIcon}).addTo(map);
+                    
+                    marker.on('click', () => {
+                        selectedMezzoId = mezzo.id;
+                        document.getElementById('modal-title').innerText = `${mezzo.tipo} #${mezzo.id}`;
+                        document.getElementById('modal-type').innerText = `ID: ${mezzo.id}`;
+                        document.getElementById('modal-battery').innerText = `${mezzo.batteria}%`;
+                        document.getElementById('vehicle-modal').classList.add('open');
+                        
+                        // Centra la mappa sul marker cliccato alzandolo un po' per far spazio al modal
+                        map.setView([mezzo.latitudine - 0.005, mezzo.longitudine], 15);
+                    });
+                    
+                    markers.push(marker);
+                });
+            } catch (error) {
+                console.error("Errore:", error);
+                showToast("Errore di connessione al server Django.", true);
+            }
+        }
+
+        async function prenotaMezzo() {
+            if (!selectedMezzoId) return;
+            try {
+                // Chiama l'API IF-U02
+                const response = await fetch(`${API_BASE_URL}/mezzi/${selectedMezzoId}/prenota/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ utente: ID_UTENTE_ATTUALE })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(`Veicolo prenotato con successo!`);
+                    closeModal();
+                    caricaMezzi(); // Ricarica la mappa per far sparire il mezzo non più disponibile
+                } else {
+                    showToast(`Errore: ${data.error || 'Impossibile prenotare'}`, true);
+                }
+            } catch (error) {
+                showToast("Errore di connessione", true);
+            }
+        }
+
+        async function sbloccaMezzo() {
+            if (!selectedMezzoId) return;
+            try {
+                // Chiama l'API IF-U12
+                const response = await fetch(`${API_BASE_URL}/corse/avvia/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ utente: ID_UTENTE_ATTUALE, mezzo: selectedMezzoId })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    showToast(`Corsa iniziata! Buon viaggio.`);
+                    closeModal();
+                    caricaMezzi();
+                } else {
+                    showToast(`Errore: ${data.error || 'Impossibile sbloccare'}`, true);
+                }
+            } catch (error) {
+                showToast("Errore di connessione", true);
+            }
+        }
+    </script>
+</body>
+</html>
