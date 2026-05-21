@@ -1,8 +1,8 @@
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-# 1. IMPORTANTE: Importiamo il modello User nativo di Django per l'autenticazione JWT
 from django.contrib.auth.models import User
+import math
 
 class Utente(models.Model):
     # Opzioni per il metodo di pagamento
@@ -13,7 +13,6 @@ class Utente(models.Model):
         ('GOOGLE_PAY', 'Google Pay'),
     ]
 
-    # 2. IMPORTANTE: Creiamo il collegamento biunivoco (OneToOne) con l'User di Django
     user = models.OneToOneField(
         User, 
         on_delete=models.CASCADE, 
@@ -67,6 +66,9 @@ class Area_Urbana(models.Model):
 
     nome_zona = models.CharField(max_length=100)
     tipologia = models.CharField(max_length=20, choices=TIPI_AREA)
+    latitudine = models.FloatField(default=0.0)
+    longitudine = models.FloatField(default=0.0)
+    raggio_metri = models.IntegerField(default=100, help_text="Raggio di estensione dell'area in metri")
 
     class Meta:
         verbose_name = "Area Urbana"
@@ -74,6 +76,24 @@ class Area_Urbana(models.Model):
 
     def __str__(self):
         return f"{self.nome_zona} ({self.get_tipologia_display()})"
+
+
+class Segnalazione(models.Model):
+    utente = models.ForeignKey(Utente, on_delete=models.CASCADE, related_name='segnalazioni')
+    mezzo = models.ForeignKey(Mezzo, on_delete=models.CASCADE, related_name='segnalazioni')
+    descrizione = models.TextField(help_text="Descrizione del guasto o del problema")
+    data_segnalazione = models.DateTimeField(default=timezone.now)
+    risolta = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        # Mettiamo il mezzo in manutenzione in automatico se la segnalazione è nuova
+        if not self.pk and not self.risolta:
+            self.mezzo.stato = 'MANUTENZIONE'
+            self.mezzo.save()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Guasto su {self.mezzo} segnalato da {self.utente.nome}"
 
 
 class Corsa(models.Model):
@@ -106,20 +126,32 @@ class Corsa(models.Model):
 
         return cls.objects.create(utente=utente, mezzo=mezzo)
 
-    def termina_corsa(self):
-        """Termina la corsa, calcola i minuti e il costo totale."""
+    def termina_corsa(self, lat_rilascio=None, lng_rilascio=None):
+        """Termina la corsa applicando vincoli di geofencing e calcolando il costo."""
         if self.fine is not None:
             raise ValidationError("Questa corsa è già stata terminata.")
+
+        # --- GEOFENCING: Controlla se la posizione di rilascio è in un'Area Vietata ---
+        if lat_rilascio and lng_rilascio:
+            aree_vietate = Area_Urbana.objects.filter(tipologia='VIETATA')
+            for area in aree_vietate:
+                # Approssimazione equirettangolare per la distanza
+                dy = (float(lat_rilascio) - area.latitudine) * 111000
+                dx = (float(lng_rilascio) - area.longitudine) * 80000
+                distanza_metri = math.sqrt(dx**2 + dy**2)
+                
+                if distanza_metri <= area.raggio_metri:
+                    raise ValidationError(f"Non puoi terminare la corsa in una zona vietata: {area.nome_zona}")
 
         self.fine = timezone.now()
         
         durata_secondi = (self.fine - self.inizio).total_seconds()
-        durata_minuti = durata_secondi / 60.0
+        durata_minuti = max(durata_secondi / 60.0, 1.0) # Almeno 1 minuto
 
         tariffe = {
             'BICI': 0.15,
-            ('SCOOTER'): 0.20,
-            ('AUTO'): 0.35
+            'SCOOTER': 0.20,
+            'AUTO': 0.35
         }
         
         tariffa_applicata = tariffe.get(self.mezzo.tipo, 0.20)
@@ -128,9 +160,12 @@ class Corsa(models.Model):
         self.costo_totale = round(costo, 2)
         self.save()
 
+        # Libera il mezzo aggiornando la posizione
         self.mezzo.stato = 'DISPONIBILE'
+        if lat_rilascio and lng_rilascio:
+            self.mezzo.latitudine = float(lat_rilascio)
+            self.mezzo.longitudine = float(lng_rilascio)
         self.mezzo.save()
 
     def __str__(self): 
         return f"Corsa #{self.id} - {self.utente} su {self.mezzo.tipo}"
-    

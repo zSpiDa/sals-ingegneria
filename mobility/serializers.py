@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Utente, Mezzo, Area_Urbana, Corsa
+from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione
 
 class UtenteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,6 +20,12 @@ class AreaUrbanaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Area_Urbana
         fields = '__all__'
+
+class SegnalazioneSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Segnalazione
+        fields = ['id', 'utente', 'mezzo', 'descrizione', 'data_segnalazione', 'risolta']
+        read_only_fields = ['data_segnalazione', 'risolta']
 
 class CorsaSerializer(serializers.ModelSerializer):
     inizio = serializers.DateTimeField(format="%d/%m/%Y %H:%M:%S", read_only=True)
