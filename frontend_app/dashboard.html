@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Mobility - App di Mobilità Urbana</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(255,255,255,0.95);
+            padding: 15px 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .navbar h1 {
+            color: #667eea;
+            font-size: 24px;
+        }
+
+        .navbar-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        /* Auth Section */
+        .auth-section {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            max-width: 500px;
+            margin: 50px auto;
+        }
+
+        .auth-section h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+
+        /* Main Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .dashboard {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        /* Vehicles List */
+        .vehicles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .vehicle-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .vehicle-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .vehicle-type {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .vehicle-info {
+            font-size: 12px;
+            margin: 5px 0;
+        }
+
+        .battery-bar {
+            background: rgba(255,255,255,0.3);
+            height: 8px;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .battery-fill {
+            background: #48bb78;
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .battery-fill.low {
+            background: #f6ad55;
+        }
+
+        .battery-fill.critical {
+            background: #f56565;
+        }
+
+        /* Ride Panel */
+        .ride-panel {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+
+        .ride-panel h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .ride-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .ride-stat {
+            background: rgba(255,255,255,0.2);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .ride-stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .ride-stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* Map */
+        .map-container {
+            height: 300px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            margin-top: 10px;
+            position: relative;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 4px solid #48bb78;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 4px solid #f56565;
+        }
+
+        .alert-info {
+            background: #bee3f8;
+            color: #2c5282;
+            border-left: 4px solid #4299e1;
+        }
+
+        /* Loading */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .vehicles-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f0f0f0;
+            padding: 10px 15px;
+            border-radius: 5px;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Navbar -->
+        <nav class="navbar">
+            <h1>🚀 Smart Mobility</h1>
+            <div class="navbar-buttons" id="navButtons">
+                <button class="btn btn-primary" onclick="showAuthModal('login')">Login</button>
+                <button class="btn btn-secondary" onclick="showAuthModal('register')">Registrazione</button>
+            </div>
+            <div class="user-info hidden" id="userInfo">
+                <div class="user-avatar" id="userAvatar"></div>
+                <div>
+                    <div id="userName" style="font-weight: bold;"></div>
+                    <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 12px;" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Auth Section -->
+        <div id="authSection" class="auth-section">
+            <!-- Login Form -->
+            <div id="loginForm">
+                <h2>Accedi al tuo account</h2>
+                <div class="alert alert-info">Usa le credenziali di test: mario.rossi / Test1234!</div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="loginUsername" placeholder="mario.rossi">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPassword" placeholder="Password">
+                </div>
+                <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="login()">Accedi</button>
+                <p style="text-align: center; margin-top: 15px; color: #666;">
+                    Non hai un account? <a href="#" onclick="showAuthModal('register'); return false;" style="color: #667eea;">Registrati</a>
+                </p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="hidden">
+                <h2>Crea un nuovo account</h2>
+                <div class="form-group">
+                    <label>Nome</label>
+                    <input type="text" id="regNome" placeholder="Mario">
+                </div>
+                <div class="form-group">
+                    <label>Cognome</label>
+                    <input type="text" id="regCognome" placeholder="Rossi">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="regUsername" placeholder="mario.rossi">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="regEmail" placeholder="mario@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Documento (Codice Fiscale)</label>
+                    <input type="text" id="regDocumento" placeholder="RSSMRA80A01H501Y">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="regPassword" placeholder="Password sicura">
+                </div>
+                <button class="btn btn-primary" style="width: 100%; padding: 12px;" onclick="register()">Registrati</button>
+                <p style="text-align: center; margin-top: 15px; color: #666;">
+                    Hai già un account? <a href="#" onclick="showAuthModal('login'); return false;" style="color: #667eea;">Accedi</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard hidden">
+            <!-- Main Content -->
+            <div>
+                <!-- Vehicles Section -->
+                <div class="card">
+                    <h2>🚴 Mezzi Disponibili</h2>
+                    <div id="vehiclesList" class="vehicles-grid">
+                        <p style="color: #999;">Caricamento...</p>
+                    </div>
+                </div>
+
+                <!-- Map Section -->
+                <div class="card">
+                    <h2>📍 Mappa Flotta</h2>
+                    <div class="map-container">
+                        <iframe id="mapFrame" style="width:100%; height:300px; border:none; border-radius:10px;" 
+                                src="https://www.openstreetmap.org/export/embed.html?bbox=16.80,41.08,16.90,41.15&layer=mapnik&marker=41.1151,16.8644"></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div>
+                <!-- Active Ride -->
+                <div class="card">
+                    <h2>🏃 Corsa Attiva</h2>
+                    <div id="activeRide" style="padding: 20px; text-align: center; color: #999;">
+                        Nessuna corsa attiva
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="card">
+                    <h2>📊 Le Tue Statistiche</h2>
+                    <div id="userStats" class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-value" id="totalRides">0</div>
+                            <div class="stat-label">Corse</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="totalSpent">€0</div>
+                            <div class="stat-label">Speso</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="totalTime">0m</div>
+                            <div class="stat-label">Tempo</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ride History -->
+                <div class="card">
+                    <h2>📜 Storico Corse</h2>
+                    <div id="rideHistory" style="max-height: 300px; overflow-y: auto;">
+                        <p style="color: #999; text-align: center;">Nessuna corsa completata</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vehicle Detail Modal -->
+    <div id="vehicleModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="vehicleModalTitle">Dettagli Mezzo</h2>
+                <button class="modal-close" onclick="closeModal('vehicleModal')">&times;</button>
+            </div>
+            <div id="vehicleModalBody">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Unlock Modal -->
+    <div id="unlockModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔓 Sblocca Mezzo</h2>
+                <button class="modal-close" onclick="closeModal('unlockModal')">&times;</button>
+            </div>
+            <p style="margin-bottom: 20px; color: #666;">Inserisci la tua posizione GPS per sbloccare il mezzo (entro 100m).</p>
+            <div class="form-group">
+                <label>Latitudine</label>
+                <input type="number" id="unlockLat" step="0.0001" placeholder="41.1151">
+            </div>
+            <div class="form-group">
+                <label>Longitudine</label>
+                <input type="number" id="unlockLng" step="0.0001" placeholder="16.8644">
+            </div>
+            <button class="btn btn-success" style="width: 100%; padding: 12px;" onclick="unlockVehicle()">Sblocca</button>
+        </div>
+    </div>
+
+    <!-- Ride End Modal -->
+    <div id="rideEndModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🏁 Termina Corsa</h2>
+                <button class="modal-close" onclick="closeModal('rideEndModal')">&times;</button>
+            </div>
+            <p style="margin-bottom: 20px; color: #666;">Inserisci la tua posizione GPS di parcheggio.</p>
+            <div class="form-group">
+                <label>Latitudine</label>
+                <input type="number" id="endLat" step="0.0001" placeholder="41.1151">
+            </div>
+            <div class="form-group">
+                <label>Longitudine</label>
+                <input type="number" id="endLng" step="0.0001" placeholder="16.8644">
+            </div>
+            <button class="btn btn-danger" style="width: 100%; padding: 12px;" onclick="endRide()">Termina Corsa</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = localStorage.getItem('authToken');
+        let currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        let currentRideId = null;
+
+        // Check auth on load
+        if (authToken) {
+            showDashboard();
+        }
+
+        function showAuthModal(type) {
+            document.getElementById('loginForm').classList.toggle('hidden', type !== 'login');
+            document.getElementById('registerForm').classList.toggle('hidden', type !== 'register');
+        }
+
+        function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            fetch(`${API_BASE}/auth/login/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.access) {
+                    authToken = data.access;
+                    currentUser = data.user;
+                    localStorage.setItem('authToken', authToken);
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    showAlert('Accesso effettuato con successo!', 'success');
+                    setTimeout(showDashboard, 1000);
+                } else {
+                    showAlert('Credenziali non valide', 'error');
+                }
+            })
+            .catch(e => showAlert('Errore di connessione', 'error'));
+        }
+
+        function register() {
+            const data = {
+                username: document.getElementById('regUsername').value,
+                email: document.getElementById('regEmail').value,
+                password: document.getElementById('regPassword').value,
+                nome: document.getElementById('regNome').value,
+                cognome: document.getElementById('regCognome').value,
+                documento: document.getElementById('regDocumento').value
+            };
+
+            fetch(`${API_BASE}/auth/registrazione/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.id) {
+                    showAlert('Registrazione riuscita! Accedi ora.', 'success');
+                    showAuthModal('login');
+                } else {
+                    showAlert(Object.values(data)[0] || 'Errore', 'error');
+                }
+            })
+            .catch(e => showAlert('Errore di registrazione', 'error'));
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = {};
+            localStorage.clear();
+            location.reload();
+        }
+
+        function showDashboard() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('navButtons').classList.add('hidden');
+            document.getElementById('userInfo').classList.remove('hidden');
+            
+            const initial = (currentUser.first_name || currentUser.username || 'U').charAt(0).toUpperCase();
+            document.getElementById('userAvatar').textContent = initial;
+            document.getElementById('userName').textContent = currentUser.first_name || currentUser.username;
+
+            loadVehicles();
+            loadUserStats();
+            loadActiveRide();
+            setInterval(loadUserStats, 5000);
+            setInterval(loadActiveRide, 5000);
+        }
+
+        function loadVehicles() {
+            fetch(`${API_BASE}/mezzi/`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+            .then(r => r.json())
+            .then(vehicles => {
+                const html = vehicles.map(v => `
+                    <div class="vehicle-card" onclick="showVehicleDetail(${v.id})">
+                        <div class="vehicle-type">${v.tipo === 'BICI' ? '🚴' : v.tipo === 'AUTO' ? '🚗' : '🛴'}</div>
+                        <div class="vehicle-info"><strong>#${v.id}</strong></div>
+                        <div class="vehicle-info">${v.tipo_display}</div>
+                        <div class="battery-bar">
+                            <div class="battery-fill ${v.batteria < 10 ? 'critical' : v.batteria < 20 ? 'low' : ''}" 
+                                 style="width: ${v.batteria}%"></div>
+                        </div>
+                        <div class="vehicle-info" style="margin-top: 5px;">${v.batteria}% batteria</div>
+                    </div>
+                `).join('');
+                document.getElementById('vehiclesList').innerHTML = html;
+            })
+            .catch(e => showAlert('Errore caricamento mezzi', 'error'));
+        }
+
+        function showVehicleDetail(vehicleId) {
+            fetch(`${API_BASE}/mezzi/${vehicleId}/`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+            .then(r => r.json())
+            .then(v => {
+                const html = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 60px; margin-bottom: 20px;">
+                            ${v.tipo === 'BICI' ? '🚴' : v.tipo === 'AUTO' ? '🚗' : '🛴'}
+                        </div>
+                        <p><strong>Tipo:</strong> ${v.tipo_display}</p>
+                        <p><strong>Stato:</strong> ${v.stato_display}</p>
+                        <p><strong>Batteria:</strong> ${v.batteria}%</p>
+                        <p><strong>Posizione:</strong> ${v.latitudine.toFixed(4)}, ${v.longitudine.toFixed(4)}</p>
+                        <button class="btn btn-success" style="margin-top: 20px; width: 100%; padding: 12px;" 
+                                onclick="startRide(${v.id})">🏁 Avvia Corsa</button>
+                    </div>
+                `;
+                document.getElementById('vehicleModalBody').innerHTML = html;
+                openModal('vehicleModal');
+            });
+        }
+
+        function startRide(vehicleId) {
+            if (!navigator.geolocation) {
+                showAlert('Geolocalizzazione non disponibile', 'error');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(pos => {
+                const data = {
+                    mezzo_id: vehicleId,
+                    latitudine: pos.coords.latitude,
+                    longitudine: pos.coords.longitude
+                };
+
+                fetch(`${API_BASE}/corse/avvia/`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.corsa) {
+                        currentRideId = data.corsa.id;
+                        closeModal('vehicleModal');
+                        showAlert('Corsa avviata! Usa il GPS per sbloccare il mezzo.', 'success');
+                        loadActiveRide();
+                    } else {
+                        showAlert(data.error || 'Errore', 'error');
+                    }
+                })
+                .catch(e => showAlert('Errore avvio corsa', 'error'));
+            });
+        }
+
+        function unlockVehicle() {
+            const lat = document.getElementById('unlockLat').value;
+            const lng = document.getElementById('unlockLng').value;
+
+            fetch(`${API_BASE}/corse/${currentRideId}/sblocca/`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ latitudine: lat, longitudine: lng })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status) {
+                    showAlert('Mezzo sbloccato! Buona corsa!', 'success');
+                    closeModal('unlockModal');
+                    loadActiveRide();
+                } else {
+                    showAlert(data.error || 'Errore', 'error');
+                }
+            })
+            .catch(e => showAlert('Errore sblocco', 'error'));
+        }
+
+        function endRide() {
+            const lat = document.getElementById('endLat').value;
+            const lng = document.getElementById('endLng').value;
+
+            fetch(`${API_BASE}/corse/${currentRideId}/termina/`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({ latitudine: lat, longitudine: lng })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.corsa) {
+                    showAlert(`Corsa terminata! Costo: €${data.corsa.costo_totale}`, 'success');
+                    closeModal('rideEndModal');
+                    currentRideId = null;
+                    loadActiveRide();
+                    loadUserStats();
+                } else {
+                    showAlert(data.error || 'Errore', 'error');
+                }
+            })
+            .catch(e => showAlert('Errore termine corsa', 'error'));
+        }
+
+        function loadActiveRide() {
+            fetch(`${API_BASE}/corse/corsa_attiva/`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.corsa_attiva) {
+                    const corsa = data.corsa;
+                    currentRideId = corsa.id;
+                    const html = `
+                        <div class="ride-panel">
+                            <h3>🏃 Corsa in Corso</h3>
+                            <div class="ride-info">
+                                <div class="ride-stat">
+                                    <div class="ride-stat-label">Mezzo</div>
+                                    <div class="ride-stat-value">${corsa.mezzo_dettagli.tipo_display}</div>
+                                </div>
+                                <div class="ride-stat">
+                                    <div class="ride-stat-label">Tempo</div>
+                                    <div class="ride-stat-value" id="rideTime">0m</div>
+                                </div>
+                                <div class="ride-stat">
+                                    <div class="ride-stat-label">Costo</div>
+                                    <div class="ride-stat-value" id="rideCost">€${corsa.costo_corrente}</div>
+                                </div>
+                                <div class="ride-stat">
+                                    <div class="ride-stat-label">Batteria</div>
+                                    <div class="ride-stat-value">${corsa.mezzo_dettagli.batteria}%</div>
+                                </div>
+                            </div>
+                            <button class="btn btn-info" style="width: 48%; padding: 10px; margin-right: 4%; background: #4299e1;" 
+                                    onclick="openModal('unlockModal')" ${corsa.sbloccato ? 'disabled' : ''}>
+                                🔓 ${corsa.sbloccato ? 'Sbloccato' : 'Sblocca'}
+                            </button>
+                            <button class="btn btn-danger" style="width: 48%; padding: 10px;" onclick="openModal('rideEndModal')">
+                                🏁 Termina
+                            </button>
+                        </div>
+                    `;
+                    document.getElementById('activeRide').innerHTML = html;
+                    updateRideCost(corsa.id);
+                } else {
+                    document.getElementById('activeRide').innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Nessuna corsa attiva</p>';
+                    currentRideId = null;
+                }
+            })
+            .catch(e => console.log('Error loading active ride'));
+        }
+
+        function updateRideCost(rideId) {
+            if (!rideId) return;
+            fetch(`${API_BASE}/corse/${rideId}/costo_corrente/`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('rideCost').textContent = `€${data.costo_stimato_corrente}`;
+                document.getElementById('rideTime').textContent = `${data.minuti_trascorsi}m`;
+            })
+            .catch(e => console.log('Error updating cost'));
+        }
+
+        function loadUserStats() {
+            fetch(`${API_BASE}/corse/statistiche_utente/`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('totalRides').textContent = data.totale_corse;
+                document.getElementById('totalSpent').textContent = `€${data.costo_totale_speso}`;
+                document.getElementById('totalTime').textContent = `${data.durata_totale_minuti}m`;
+            })
+            .catch(e => console.log('Error loading stats'));
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            document.body.insertBefore(alertDiv, document.body.firstChild);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        // Real-time updates
+        setInterval(() => {
+            if (currentRideId) {
+                updateRideCost(currentRideId);
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
