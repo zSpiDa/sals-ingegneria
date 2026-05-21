@@ -169,3 +169,19 @@ class Corsa(models.Model):
 
     def __str__(self): 
         return f"Corsa #{self.id} - {self.utente} su {self.mezzo.tipo}"
+    
+
+# Aggiungi questa classe in fondo al file models.py
+class PosizioneGPS(models.Model):
+    """Storico delle posizioni inviate dal veicolo durante una corsa (IF-O04)"""
+    corsa = models.ForeignKey(Corsa, on_delete=models.CASCADE, related_name='percorso_gps')
+    latitudine = models.FloatField()
+    longitudine = models.FloatField()
+    timestamp = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name_plural = "Posizioni GPS"
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"Corsa #{self.corsa.id} - Lat: {self.latitudine}, Lng: {self.longitudine}"

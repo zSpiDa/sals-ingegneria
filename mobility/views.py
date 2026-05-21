@@ -1,3 +1,4 @@
+import math
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -5,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione
+from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione, PosizioneGPS
 from .serializers import UtenteSerializer, MezzoSerializer, AreaUrbanaSerializer, CorsaSerializer, SegnalazioneSerializer
 
 
@@ -101,20 +102,16 @@ class CorsaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def blocco_temporaneo(self, request, pk=None):
-        """Mette in pausa il veicolo mantenendo la corsa attiva."""
         corsa = self.get_object()
         if corsa.fine:
             return Response({'error': 'La corsa è già terminata.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Usa PRENOTATO come stato per indicare che è temporaneamente inaccessibile ad altri
         corsa.mezzo.stato = 'PRENOTATO' 
         corsa.mezzo.save()
-        
         return Response({'status': 'Pausa attiva. Tariffazione in corso.'}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
     def sblocco_temporaneo(self, request, pk=None):
-        """Riprende la marcia dopo la pausa."""
         corsa = self.get_object()
         if corsa.mezzo.stato == 'PRENOTATO' and not corsa.fine:
             corsa.mezzo.stato = 'IN_USO'
@@ -140,3 +137,70 @@ class CorsaViewSet(viewsets.ModelViewSet):
             'minuti_trascorsi': int(durata_minuti),
             'costo_stimato_corrente': costo_attuale
         }, status=status.HTTP_200_OK)
+
+    # ==========================================
+    # NUOVE FUNZIONI AGGIUNTE (PUNTO 3)
+    # ==========================================
+    
+    @action(detail=False, methods=['post'])
+    def stima_preventiva(self, request):
+        """
+        IF-U03: Calcola preventivo in base a punto A, punto B e tipo di mezzo.
+        """
+        lat_a = float(request.data.get('lat_partenza', 0))
+        lng_a = float(request.data.get('lng_partenza', 0))
+        lat_b = float(request.data.get('lat_destinazione', 0))
+        lng_b = float(request.data.get('lng_destinazione', 0))
+        tipo_mezzo = request.data.get('tipo_mezzo', 'SCOOTER').upper()
+
+        if not all([lat_a, lng_a, lat_b, lng_b]):
+            return Response({'error': 'Coordinate di partenza e destinazione obbligatorie.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Calcolo distanza (Haversine approssimato)
+        dy = (lat_b - lat_a) * 111000
+        dx = (lng_b - lng_a) * 80000
+        distanza_metri = math.sqrt(dx**2 + dy**2)
+        distanza_km = distanza_metri / 1000.0
+
+        # Velocità medie stimate in città (km/h)
+        velocita = {'BICI': 12.0, 'SCOOTER': 15.0, 'AUTO': 25.0}
+        tariffe = {'BICI': 0.15, 'SCOOTER': 0.20, 'AUTO': 0.35}
+
+        vel_media = velocita.get(tipo_mezzo, 15.0)
+        tariffa = tariffe.get(tipo_mezzo, 0.20)
+
+        # Calcolo tempo (in minuti) e costo
+        tempo_ore = distanza_km / vel_media
+        tempo_minuti = max(tempo_ore * 60.0, 1.0) # minimo 1 minuto
+        costo_stimato = round(tempo_minuti * tariffa, 2)
+
+        return Response({
+            'distanza_km': round(distanza_km, 2),
+            'tempo_stimato_minuti': int(tempo_minuti),
+            'costo_stimato': costo_stimato,
+            'mezzo_scelto': tipo_mezzo
+        }, status=status.HTTP_200_OK)
+
+
+    @action(detail=True, methods=['post'])
+    def aggiorna_posizione_gps(self, request, pk=None):
+        """
+        IF-O04: Endpoint che il sensore hardware chiama ogni 10 secondi per inviare la posizione attuale.
+        """
+        corsa = self.get_object()
+        if corsa.fine:
+            return Response({'error': 'Corsa terminata. Impossibile tracciare.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        lat = request.data.get('latitudine')
+        lng = request.data.get('longitudine')
+
+        if lat is None or lng is None:
+            return Response({'error': 'Latitudine e longitudine mancanti.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        PosizioneGPS.objects.create(
+            corsa=corsa,
+            latitudine=float(lat),
+            longitudine=float(lng)
+        )
+
+        return Response({'status': 'Posizione registrata.'}, status=status.HTTP_201_CREATED)
