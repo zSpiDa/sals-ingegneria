@@ -5,65 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Mobility App</title>
     
-    <!-- Tailwind CSS per il design mobile-first -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Leaflet JS per le mappe interattive -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Font Awesome per le icone -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-            margin: 0;
-            padding: 0;
-            overflow: hidden; /* Evita lo scroll dell'intera pagina */
-        }
-        #map {
-            height: calc(100vh - 130px); /* Spazio per Header e Bottom Nav */
-            width: 100%;
-            z-index: 10;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; overflow: hidden; }
+        #map { height: calc(100vh - 130px); width: 100%; z-index: 10; }
         
-        /* Animazione per il pannello inferiore (Modal) */
         .bottom-sheet {
-            transform: translateY(100%);
+            transform: translateY(120%);
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .bottom-sheet.open {
-            transform: translateY(0);
-        }
+        .bottom-sheet.open { transform: translateY(0); }
 
-        /* Notifiche Toast (Sostituto di Alert) */
         #toast-container {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 90%;
-            max-width: 400px;
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 400px;
         }
         .toast {
-            background: #333;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            text-align: center;
-            font-weight: 500;
+            background: #333; color: white; padding: 12px 20px; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); opacity: 0; transition: opacity 0.3s ease;
+            text-align: center; font-weight: 500;
+        }
+        .user-location-icon {
+            background: #2563eb; border: 3px white solid; border-radius: 50%;
+            box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.3);
         }
     </style>
 </head>
@@ -78,200 +47,365 @@
         </div>
     </header>
 
-    <!-- Contenitore Notifiche -->
     <div id="toast-container"></div>
 
     <main class="flex-grow relative">
         <div id="map"></div>
-        
-        <!-- Pulsante Centra Mappa -->
-        <button onclick="centerMap()" class="absolute bottom-6 right-4 z-[400] bg-white p-3 rounded-full shadow-lg border border-gray-200 text-blue-600 hover:bg-gray-50 active:bg-gray-100">
+        <button type="button" onclick="centerMapOnUser()" class="absolute bottom-6 right-4 z-[400] bg-white p-3 rounded-full shadow-lg border border-gray-200 text-blue-600 hover:bg-gray-50">
             <i class="fa-solid fa-location-crosshairs text-xl"></i>
         </button>
     </main>
 
     <div id="vehicle-modal" class="bottom-sheet fixed bottom-[60px] left-0 right-0 bg-white rounded-t-3xl shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] z-[500] p-6 pb-8 border-t border-gray-100">
-        <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div> <!-- Maniglia -->
+        <div class="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-5"></div>
         
-        <div class="flex justify-between items-start mb-4">
+        <div class="flex justify-between items-start mb-2">
             <div>
                 <h2 id="modal-title" class="text-2xl font-bold text-gray-800">Mezzo #1</h2>
-                <p id="modal-type" class="text-gray-500 font-medium">Bici Elettrica</p>
+                <p id="modal-type" class="text-gray-500 font-medium">Veicolo</p>
             </div>
-            <div class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold flex items-center">
-                <i class="fa-solid fa-battery-three-quarters mr-1"></i> <span id="modal-battery">85%</span>
+            <div class="flex flex-col items-end">
+                <div class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold flex items-center mb-1">
+                    <i class="fa-solid fa-battery-three-quarters mr-1"></i> <span id="modal-battery">85%</span>
+                </div>
+                <span id="modal-autonomy" class="text-xs font-bold text-gray-400"><i class="fa-solid fa-road mr-1"></i>~25 km</span>
             </div>
         </div>
 
-        <div class="flex gap-4 mt-6">
-            <button onclick="prenotaMezzo()" class="flex-1 bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-xl shadow-sm border border-gray-200 active:bg-gray-200 transition">
+        <div class="mb-4 bg-gray-50 p-3 rounded-xl border border-gray-200">
+            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2"><i class="fa-solid fa-calculator mr-1"></i> Preventivo Corsa</p>
+            <div class="flex gap-2">
+                <input type="text" id="destinazione-input" placeholder="Es. Via Roma, Milano" class="flex-1 border border-gray-300 py-2 px-3 rounded-lg text-sm focus:outline-none focus:border-blue-500">
+                <button type="button" onclick="calcolaPreventivoDaIndirizzo()" class="bg-blue-100 text-blue-700 px-3 rounded-lg font-bold hover:bg-blue-200 transition"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="risultato-preventivo" class="mt-2 text-sm text-blue-700 font-medium hidden bg-blue-50 p-2 rounded">
+                </div>
+        </div>
+
+        <div class="mb-2">
+            <input type="text" id="codice-sblocco-input" placeholder="Codice Sblocco (es. 123456)" maxlength="6" class="w-full text-center border-2 border-gray-200 py-3 px-4 rounded-xl text-lg font-bold tracking-widest uppercase focus:outline-none focus:border-blue-500 transition">
+        </div>
+
+        <div class="flex gap-4 mt-2">
+            <button type="button" onclick="event.preventDefault(); prenotaMezzo()" class="flex-1 bg-gray-100 text-gray-800 font-bold py-3 px-4 rounded-xl shadow-sm border border-gray-200 active:bg-gray-200 transition">
                 <i class="fa-solid fa-calendar-check mr-2"></i>Prenota
             </button>
-            <button onclick="sbloccaMezzo()" class="flex-1 bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-blue-500/30 active:bg-blue-700 transition">
+            <button type="button" onclick="event.preventDefault(); sbloccaMezzo()" class="flex-1 bg-blue-600 text-white font-bold py-3 px-4 rounded-xl shadow-md active:bg-blue-700 transition">
                 <i class="fa-solid fa-unlock-keyhole mr-2"></i>Sblocca
             </button>
         </div>
-        
-        <button onclick="closeModal()" class="w-full mt-4 text-gray-400 font-medium py-2 active:text-gray-600">
-            Annulla
-        </button>
+        <button type="button" onclick="event.preventDefault(); closeModal('vehicle-modal')" class="w-full mt-4 text-gray-400 font-medium py-2 active:text-gray-600">Annulla</button>
+    </div>
+
+    <div id="active-ride-modal" class="bottom-sheet fixed bottom-[60px] left-0 right-0 bg-white rounded-t-3xl shadow-[0_-15px_25px_-5px_rgba(0,0,0,0.15)] z-[600] p-6 pb-8 border-t-4 border-blue-500">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-xl font-extrabold text-blue-600 animate-pulse"><i class="fa-solid fa-route mr-2"></i>Corsa in corso</h2>
+                <p class="text-gray-500 text-sm mt-1">Guida con prudenza!</p>
+            </div>
+            <div class="text-right">
+                <div class="text-2xl font-black text-gray-800" id="ride-cost">0.00€</div>
+                <div class="text-sm font-semibold text-gray-400" id="ride-time">0 min</div>
+            </div>
+        </div>
+
+        <div class="flex gap-4">
+            <button type="button" id="btn-pausa" onclick="event.preventDefault(); togglePausa()" class="flex-1 bg-yellow-400 text-yellow-900 font-bold py-3 px-4 rounded-xl shadow-md active:bg-yellow-500 transition">
+                <i class="fa-solid fa-pause mr-2" id="icon-pausa"></i><span id="text-pausa">Pausa</span>
+            </button>
+            <button type="button" onclick="event.preventDefault(); terminaCorsa()" class="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-xl shadow-md active:bg-red-700 transition">
+                <i class="fa-solid fa-stop mr-2"></i>Termina
+            </button>
+        </div>
     </div>
 
     <nav class="bg-white border-t border-gray-200 flex justify-around p-2 pb-safe z-20 h-[60px]">
         <button class="flex flex-col items-center justify-center w-full text-blue-600">
-            <i class="fa-solid fa-map-location-dot text-xl mb-1"></i>
-            <span class="text-[10px] font-bold uppercase tracking-wider">Mappa</span>
+            <i class="fa-solid fa-map-location-dot text-xl mb-1"></i><span class="text-[10px] font-bold uppercase tracking-wider">Mappa</span>
         </button>
         <button onclick="showToast('Storico corse: in arrivo nel prossimo sprint!')" class="flex flex-col items-center justify-center w-full text-gray-400 active:text-blue-600">
-            <i class="fa-solid fa-route text-xl mb-1"></i>
-            <span class="text-[10px] font-bold uppercase tracking-wider">Corse</span>
+            <i class="fa-solid fa-route text-xl mb-1"></i><span class="text-[10px] font-bold uppercase tracking-wider">Corse</span>
         </button>
         <button onclick="showToast('Impostazioni profilo: in arrivo nel prossimo sprint!')" class="flex flex-col items-center justify-center w-full text-gray-400 active:text-blue-600">
-            <i class="fa-solid fa-user-gear text-xl mb-1"></i>
-            <span class="text-[10px] font-bold uppercase tracking-wider">Profilo</span>
+            <i class="fa-solid fa-user-gear text-xl mb-1"></i><span class="text-[10px] font-bold uppercase tracking-wider">Profilo</span>
         </button>
     </nav>
 
     <script>
-        // CONFIGURAZIONE: Inserisci l'URL del tuo server Django
-        // Se apri l'app dal telefono, metti l'IP locale del tuo PC (es: http://192.168.1.55:8000/api)
         const API_BASE_URL = 'http://172.20.10.3:8000/api';
-        const ID_UTENTE_ATTUALE = 1; // Fissato a 1 per testare lo Sprint 1
+        const ID_UTENTE_ATTUALE = 1; 
 
-        let map;
-        let markers = [];
+        let map, markers = [];
+        let userLocationMarker = null;
         let selectedMezzoId = null;
+        
+        let activeRideId = null;
+        let isPaused = false;
+        let timerCostoInterval = null;
 
-        // Inizializzazione Mappa
+        let userLat = 45.4642;
+        let userLng = 9.1900;
+        let tipoMezzoSelezionato = 'SCOOTER';
+
         document.addEventListener('DOMContentLoaded', () => {
-            // Centrata su Milano (dove il seed_db crea i mezzi)
-            map = L.map('map', {zoomControl: false}).setView([45.4642, 9.1900], 14);
-            
+            map = L.map('map', {zoomControl: false}).setView([userLat, userLng], 14);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
 
+            trovaPosizioneUtente();
             caricaMezzi();
+            caricaAreeUrbane(); 
+            
+            // AGGIUNTO: Aggiornamento mappa automatico (Polling ogni 15 secondi) per il "Secondo Utente"
+            setInterval(caricaMezzi, 15000); 
         });
+
+        function trovaPosizioneUtente() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLat = position.coords.latitude;
+                        userLng = position.coords.longitude;
+                        map.setView([userLat, userLng], 15);
+                        if (userLocationMarker) {
+                            userLocationMarker.setLatLng([userLat, userLng]);
+                        } else {
+                            const userIcon = L.divIcon({ className: 'user-location-icon', iconSize: [14, 14] });
+                            userLocationMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(map)
+                                .bindPopup("Tu sei qui").openPopup();
+                        }
+                    },
+                    (error) => { showToast("Uso posizione di default (permessi GPS disattivati).", false); },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            }
+        }
+
+        function centerMapOnUser() {
+            trovaPosizioneUtente();
+            map.setView([userLat, userLng], 16);
+        }
 
         function showToast(message, isError = false) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.className = 'toast';
-            if (isError) toast.style.backgroundColor = '#ef4444'; // Rosso Tailwind
-            else toast.style.backgroundColor = '#10b981'; // Verde Tailwind
-            
+            toast.style.backgroundColor = isError ? '#ef4444' : '#10b981';
             toast.innerText = message;
             container.appendChild(toast);
-            
-            // Fade in
             setTimeout(() => toast.style.opacity = '1', 10);
-            
-            // Rimuovi dopo 3 secondi
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
-        function centerMap() {
-            map.setView([45.4642, 9.1900], 14);
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('open');
+            if(modalId === 'vehicle-modal') {
+                selectedMezzoId = null;
+                document.getElementById('codice-sblocco-input').value = "";
+                document.getElementById('destinazione-preventivo').value = "";
+                document.getElementById('risultato-preventivo').classList.add('hidden');
+            }
         }
 
-        function closeModal() {
-            document.getElementById('vehicle-modal').classList.remove('open');
-            selectedMezzoId = null;
+        async function caricaAreeUrbane() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/aree-urbane/`);
+                if (!response.ok) return;
+                const aree = await response.json();
+                aree.forEach(area => {
+                    let color = area.tipologia === 'PARCHEGGIO' ? '#10b981' : '#ef4444';
+                    L.circle([area.latitudine, area.longitudine], {
+                        color: color, fillColor: color, fillOpacity: 0.15, radius: area.raggio_metri, weight: 2
+                    }).addTo(map).bindPopup(`<b>${area.nome_zona}</b><br>${area.tipologia}`);
+                });
+            } catch (error) { console.error("Errore aree", error); }
         }
 
         async function caricaMezzi() {
+            // Evita di ricaricare la mappa se c'è una corsa attiva (evita fastidi grafici)
+            if (activeRideId !== null) return; 
+
             try {
-                // Chiama l'API IF-U01
                 const response = await fetch(`${API_BASE_URL}/mezzi/?solo_disponibili=true`);
-                if (!response.ok) throw new Error("Errore di rete");
+                if (!response.ok) return;
                 const mezzi = await response.json();
                 
-                // Pulisci i vecchi marker
                 markers.forEach(m => map.removeLayer(m));
                 markers = [];
 
                 mezzi.forEach(mezzo => {
-                    // Scegli icona in base al tipo
                     let iconHtml = '<i class="fa-solid fa-bicycle text-blue-600 bg-white p-2 rounded-full border-2 border-blue-600 shadow-md"></i>';
                     if (mezzo.tipo === 'AUTO') iconHtml = '<i class="fa-solid fa-car text-purple-600 bg-white p-2 rounded-full border-2 border-purple-600 shadow-md"></i>';
                     if (mezzo.tipo === 'SCOOTER') iconHtml = '<i class="fa-solid fa-bolt text-yellow-500 bg-white p-2 rounded-full border-2 border-yellow-500 shadow-md"></i>';
 
-                    const customIcon = L.divIcon({
-                        html: iconHtml,
-                        className: 'custom-div-icon',
-                        iconSize: [30, 30],
-                        iconAnchor: [15, 15]
-                    });
-
+                    const customIcon = L.divIcon({ html: iconHtml, className: 'custom-div-icon', iconSize: [30, 30], iconAnchor: [15, 15] });
                     const marker = L.marker([mezzo.latitudine, mezzo.longitudine], {icon: customIcon}).addTo(map);
                     
                     marker.on('click', () => {
                         selectedMezzoId = mezzo.id;
-                        document.getElementById('modal-title').innerText = `${mezzo.tipo} #${mezzo.id}`;
-                        document.getElementById('modal-type').innerText = `ID: ${mezzo.id}`;
+                        tipoMezzoSelezionato = mezzo.tipo;
+                        document.getElementById('modal-title').innerText = `${mezzo.tipo}`;
+                        document.getElementById('modal-type').innerText = `ID Veicolo: #${mezzo.id}`;
                         document.getElementById('modal-battery').innerText = `${mezzo.batteria}%`;
-                        document.getElementById('vehicle-modal').classList.add('open');
+                        document.getElementById('modal-autonomy').innerHTML = `<i class="fa-solid fa-road mr-1"></i>~${mezzo.autonomia_km} km`;
                         
-                        // Centra la mappa sul marker cliccato alzandolo un po' per far spazio al modal
-                        map.setView([mezzo.latitudine - 0.005, mezzo.longitudine], 15);
+                        document.getElementById('vehicle-modal').classList.add('open');
+                        map.setView([mezzo.latitudine - 0.002, mezzo.longitudine], 16);
                     });
-                    
                     markers.push(marker);
                 });
-            } catch (error) {
-                console.error("Errore:", error);
-                showToast("Errore di connessione al server Django.", true);
+            } catch (error) { console.error("Errore caricamento mezzi", error); }
+        }
+
+        // NUOVA FUNZIONE: Calcolo Preventivo (IF-U03)
+        async function calcolaPreventivo() {
+            const destSelezionata = document.getElementById('destinazione-preventivo').value;
+            const divRisultato = document.getElementById('risultato-preventivo');
+            
+            if (!destSelezionata) {
+                divRisultato.classList.add('hidden');
+                return;
+            }
+
+            const [lat_dest, lng_dest] = destSelezionata.split(',');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/corse/stima_preventiva/`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        lat_partenza: userLat,
+                        lng_partenza: userLng,
+                        lat_destinazione: parseFloat(lat_dest),
+                        lng_destinazione: parseFloat(lng_dest),
+                        tipo_mezzo: tipoMezzoSelezionato
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    divRisultato.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span><i class="fa-solid fa-stopwatch mr-1"></i> ~${data.tempo_stimato_minuti} min (${data.distanza_km}km)</span>
+                            <span class="font-bold text-lg">${data.costo_stimato}€</span>
+                        </div>
+                    `;
+                    divRisultato.classList.remove('hidden');
+                }
+            } catch (e) {
+                showToast("Errore nel calcolo del preventivo", true);
             }
         }
 
         async function prenotaMezzo() {
             if (!selectedMezzoId) return;
             try {
-                // Chiama l'API IF-U02
                 const response = await fetch(`${API_BASE_URL}/mezzi/${selectedMezzoId}/prenota/`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ utente: ID_UTENTE_ATTUALE })
                 });
-                
                 const data = await response.json();
                 if (response.ok) {
-                    showToast(`Veicolo prenotato con successo!`);
-                    closeModal();
-                    caricaMezzi(); // Ricarica la mappa per far sparire il mezzo non più disponibile
-                } else {
-                    showToast(`Errore: ${data.error || 'Impossibile prenotare'}`, true);
-                }
-            } catch (error) {
-                showToast("Errore di connessione", true);
-            }
+                    showToast(`Veicolo prenotato! Hai 15 minuti.`);
+                    closeModal('vehicle-modal');
+                    caricaMezzi();
+                } else { showToast(`Errore: ${data.error}`, true); }
+            } catch (error) { showToast("Errore di connessione", true); }
         }
 
         async function sbloccaMezzo() {
             if (!selectedMezzoId) return;
+
+            // VALIDAZIONE CODICE SBLOCCO (IF-U12)
+            const codice = document.getElementById('codice-sblocco-input').value.trim();
+            if (codice.length !== 6) {
+                showToast("Inserisci un codice valido di 6 caratteri!", true);
+                return;
+            }
+
             try {
-                // Chiama l'API IF-U12
                 const response = await fetch(`${API_BASE_URL}/corse/avvia/`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ utente: ID_UTENTE_ATTUALE, mezzo: selectedMezzoId })
                 });
-                
                 const data = await response.json();
+                
                 if (response.ok) {
-                    showToast(`Corsa iniziata! Buon viaggio.`);
-                    closeModal();
-                    caricaMezzi();
-                } else {
-                    showToast(`Errore: ${data.error || 'Impossibile sbloccare'}`, true);
+                    activeRideId = data.id;
+                    showToast(`Corsa iniziata! Indossa il casco.`);
+                    closeModal('vehicle-modal');
+                    caricaMezzi(); 
+                    
+                    document.getElementById('active-ride-modal').classList.add('open');
+                    
+                    aggiornaCostoInTempoReale();
+                    timerCostoInterval = setInterval(aggiornaCostoInTempoReale, 60000);
+
+                } else { showToast(`Errore: ${data.error}`, true); }
+            } catch (error) { showToast("Errore di connessione", true); }
+        }
+
+        async function aggiornaCostoInTempoReale() {
+            if (!activeRideId || isPaused) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/corse/${activeRideId}/costo_corrente/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('ride-cost').innerText = `${data.costo_stimato_corrente}€`;
+                    document.getElementById('ride-time').innerText = `${data.minuti_trascorsi} min`;
                 }
-            } catch (error) {
-                showToast("Errore di connessione", true);
-            }
+            } catch (e) { console.error("Errore timer", e); }
+        }
+
+        async function togglePausa() {
+            const action = isPaused ? 'sblocco_temporaneo' : 'blocco_temporaneo';
+            try {
+                const response = await fetch(`${API_BASE_URL}/corse/${activeRideId}/${action}/`, { method: 'POST' });
+                if (response.ok) {
+                    isPaused = !isPaused;
+                    const btn = document.getElementById('btn-pausa');
+                    const text = document.getElementById('text-pausa');
+                    const icon = document.getElementById('icon-pausa');
+
+                    if (isPaused) {
+                        btn.classList.replace('bg-yellow-400', 'bg-blue-100');
+                        btn.classList.replace('text-yellow-900', 'text-blue-800');
+                        text.innerText = 'Riprendi';
+                        icon.classList.replace('fa-pause', 'fa-play');
+                        showToast('Mezzo bloccato. Pausa attiva.');
+                    } else {
+                        btn.classList.replace('bg-blue-100', 'bg-yellow-400');
+                        btn.classList.replace('text-blue-800', 'text-yellow-900');
+                        text.innerText = 'Pausa';
+                        icon.classList.replace('fa-play', 'fa-pause');
+                        showToast('Mezzo sbloccato. Puoi ripartire.');
+                    }
+                }
+            } catch (e) { showToast("Errore durante la pausa", true); }
+        }
+
+        async function terminaCorsa() {
+            if (!activeRideId) return;
+            const center = map.getCenter();
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/corse/${activeRideId}/termina/`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ latitudine: center.lat, longitudine: center.lng })
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showToast(`Corsa terminata! Costo finale: ${data.costo_totale}€`);
+                    clearInterval(timerCostoInterval);
+                    activeRideId = null;
+                    isPaused = false;
+                    closeModal('active-ride-modal');
+                    caricaMezzi(); 
+                } else {
+                    showToast(`Impossibile terminare: ${data.error}`, true);
+                }
+            } catch (error) { showToast("Errore di connessione", true); }
         }
     </script>
 </body>

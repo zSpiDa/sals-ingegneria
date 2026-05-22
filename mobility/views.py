@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from datetime import timedelta
 
 from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione, PosizioneGPS
 from .serializers import UtenteSerializer, MezzoSerializer, AreaUrbanaSerializer, CorsaSerializer, SegnalazioneSerializer
@@ -14,6 +15,30 @@ class UtenteViewSet(viewsets.ModelViewSet):
     queryset = Utente.objects.all()
     serializer_class = UtenteSerializer
     search_fields = ['nome', 'cognome', 'documento']
+    @action(detail=True, methods=['post'])
+    def aggiorna_metodo_pagamento(self, request, pk=None):
+        """
+        IF-U13: Permette all'utente di salvare un nuovo metodo di pagamento nel profilo.
+        """
+        utente = self.get_object()
+        nuovo_metodo = request.data.get('metodo_pagamento')
+        
+        # Recupera la lista dei metodi validi direttamente dal modello
+        metodi_validi = [m[0] for m in Utente.METODI_PAGAMENTO]
+        
+        if nuovo_metodo not in metodi_validi:
+            return Response(
+                {'error': f'Metodo non valido. Scegli tra: {metodi_validi}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        utente.metodo_pagamento = nuovo_metodo
+        utente.save()
+        
+        return Response(
+            {'status': f'Metodo di pagamento salvato con successo: {nuovo_metodo}'}, 
+            status=status.HTTP_200_OK
+        )
 
 
 class MezzoViewSet(viewsets.ModelViewSet):
@@ -73,12 +98,20 @@ class CorsaViewSet(viewsets.ModelViewSet):
     def avvia(self, request):
         utente_id = request.data.get('utente')
         mezzo_id = request.data.get('mezzo')
+        codice_inserito = request.data.get('codice_sblocco') # NUOVO: Prendiamo il codice
 
         if not utente_id or not mezzo_id:
             return Response({'error': 'Fornire identificativi validi per utente e mezzo.'}, status=status.HTTP_400_BAD_REQUEST)
 
         utente = get_object_or_404(Utente, id=utente_id)
         mezzo = get_object_or_404(Mezzo, id=mezzo_id)
+
+        # NUOVO: Validazione del codice di sblocco a 6 cifre (IF-U12)
+        if not codice_inserito or codice_inserito != mezzo.codice_sblocco:
+            return Response(
+                {'error': 'Codice di sblocco errato o mancante. Riprova.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             corsa = Corsa.avvia_corsa(utente=utente, mezzo=mezzo)
@@ -202,5 +235,16 @@ class CorsaViewSet(viewsets.ModelViewSet):
             latitudine=float(lat),
             longitudine=float(lng)
         )
+
+    @action(detail=True, methods=['post'])
+    def prenota(self, request, pk=None):
+        mezzo = self.get_object()
+        if mezzo.stato != 'DISPONIBILE':
+            return Response({'error': 'Mezzo non disponibile.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        mezzo.stato = 'PRENOTATO'
+        mezzo.scadenza_prenotazione = timezone.now() + timedelta(minutes=15)
+        mezzo.save()
+        return Response({'status': 'Mezzo prenotato per 15 minuti.'}, status=status.HTTP_200_OK)
 
         return Response({'status': 'Posizione registrata.'}, status=status.HTTP_201_CREATED)

@@ -35,6 +35,7 @@ class Mezzo(models.Model):
         ('BICI', 'Bicicletta Elettrica'),
         ('AUTO', 'Automobile'),
         ('SCOOTER', 'E-Scooter'),
+        
     ]
     
     STATI_MEZZO = [
@@ -49,7 +50,9 @@ class Mezzo(models.Model):
     batteria = models.IntegerField(help_text="Percentuale di carica (0-100)")
     latitudine = models.FloatField()
     longitudine = models.FloatField()
-
+    codice_sblocco = models.CharField(max_length=6, unique=True, null=True, blank=True, help_text="Codice di 6 cifre o ID QR Code")
+    scadenza_prenotazione = models.DateTimeField(null=True, blank=True)
+    
     class Meta:
         verbose_name_plural = "Mezzi"
 
