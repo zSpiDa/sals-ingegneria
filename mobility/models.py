@@ -65,6 +65,7 @@ class Area_Urbana(models.Model):
         ('PARCHEGGIO', 'Area di Parcheggio Consentita'),
         ('VIETATA', 'Zona a Traffico Limitato / Divieto'),
         ('CANTIERE', 'Cantiere / Strada Chiusa'),
+        ('RICARICA', 'Stazione di Ricarica'),
     ]
 
     nome_zona = models.CharField(max_length=100)

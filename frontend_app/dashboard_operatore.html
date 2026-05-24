@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Operatore - Monitoraggio Flotta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { margin: 0; padding: 0; display: flex; height: 100vh; font-family: sans-serif; background: #1f2937; }
+        #sidebar { width: 350px; background: #111827; color: white; padding: 20px; overflow-y: auto; }
+        #map { flex-grow: 1; }
+        .mezzo-card { background: #374151; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid gray; }
+        .status-DISPONIBILE { border-left-color: #10b981; }
+        .status-IN_USO { border-left-color: #3b82f6; }
+        .status-PRENOTATO { border-left-color: #f59e0b; }
+        .status-MANUTENZIONE { border-left-color: #ef4444; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2 class="text-2xl font-bold mb-6 text-blue-400"><i class="fa-solid fa-satellite-dish mr-2"></i>Flotta Live</h2>
+        <div class="flex gap-2 mb-4 text-sm font-bold">
+            <div class="bg-green-500 px-2 py-1 rounded">Disponibili</div>
+            <div class="bg-blue-500 px-2 py-1 rounded">In Uso</div>
+            <div class="bg-red-500 px-2 py-1 rounded">Guasti</div>
+        </div>
+        <div id="lista-mezzi">Caricamento flotta in corso...</div>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        const API_BASE_URL = 'http://172.20.10.3:8000/api';
+        let map = L.map('map').setView([45.4642, 9.1900], 13);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+        async function caricaFlottaOperatore() {
+            try {
+                // Chiama l'API che restituisce TUTTI i mezzi, non solo quelli disponibili
+                const response = await fetch(`${API_BASE_URL}/mezzi/mappa_flotta/`);
+                const mezzi = await response.json();
+                
+                const listaDiv = document.getElementById('lista-mezzi');
+                listaDiv.innerHTML = '';
+
+                mezzi.forEach(mezzo => {
+                    // Imposta i colori in base allo stato
+                    let color = 'gray';
+                    if(mezzo.stato === 'DISPONIBILE') color = '#10b981'; // Verde
+                    if(mezzo.stato === 'IN_USO') color = '#3b82f6'; // Blu
+                    if(mezzo.stato === 'PRENOTATO') color = '#f59e0b'; // Giallo
+                    if(mezzo.stato === 'MANUTENZIONE') color = '#ef4444'; // Rosso
+
+                    // Crea il marker sulla mappa
+                    L.circleMarker([mezzo.latitudine, mezzo.longitudine], {
+                        radius: 8, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
+                    }).addTo(map).bindPopup(`<b>Veicolo #${mezzo.id} (${mezzo.tipo})</b><br>Stato: ${mezzo.stato}<br>Batteria: ${mezzo.batteria}%`);
+
+                    // Aggiunge la card nella barra laterale
+                    listaDiv.innerHTML += `
+                        <div class="mezzo-card status-${mezzo.stato}">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-lg">ID #${mezzo.id} - ${mezzo.tipo}</span>
+                                <span class="text-sm px-2 py-1 bg-gray-700 rounded">${mezzo.batteria}% <i class="fa-solid fa-battery-half"></i></span>
+                            </div>
+                            <div class="text-sm text-gray-300">Stato attuale: <b style="color:${color}">${mezzo.stato}</b></div>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                console.error("Errore server");
+            }
+        }
+
+        caricaFlottaOperatore();
+        setInterval(caricaFlottaOperatore, 10000); // Ricarica la flotta ogni 10 secondi
+    </script>
+</body>
+</html>

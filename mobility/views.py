@@ -98,27 +98,32 @@ class CorsaViewSet(viewsets.ModelViewSet):
     def avvia(self, request):
         utente_id = request.data.get('utente')
         mezzo_id = request.data.get('mezzo')
-        codice_inserito = request.data.get('codice_sblocco') # NUOVO: Prendiamo il codice
+        codice_inserito = request.data.get('codice_sblocco')
 
         if not utente_id or not mezzo_id:
             return Response({'error': 'Fornire identificativi validi per utente e mezzo.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        from django.shortcuts import get_object_or_404
         utente = get_object_or_404(Utente, id=utente_id)
         mezzo = get_object_or_404(Mezzo, id=mezzo_id)
 
-        # NUOVO: Validazione del codice di sblocco a 6 cifre (IF-U12)
-        if not codice_inserito or codice_inserito != mezzo.codice_sblocco:
-            return Response(
-                {'error': 'Codice di sblocco errato o mancante. Riprova.'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Controllo robusto del codice (rimuove spazi invisibili accidentali)
+        codice_reale = str(mezzo.codice_sblocco).strip() if mezzo.codice_sblocco else ""
+        codice_inviato = str(codice_inserito).strip() if codice_inserito else ""
+
+        if not codice_reale:
+            return Response({'error': 'Questo veicolo non ha un codice configurato nel database.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if codice_inviato != codice_reale:
+            return Response({'error': 'Codice di sblocco errato! Riprova.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             corsa = Corsa.avvia_corsa(utente=utente, mezzo=mezzo)
-            serializer = self.get_serializer(corsa)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
-            return Response({'error': e.message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'status': 'Corsa avviata', 'id': corsa.id}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            # Cattura in modo sicuro qualsiasi errore interno (es. geofencing, mezzo in uso, ecc.)
+            error_msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+            return Response({'error': error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'])
     def termina(self, request, pk=None):

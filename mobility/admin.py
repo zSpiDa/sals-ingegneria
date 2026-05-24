@@ -1,5 +1,21 @@
 from django.contrib import admin
+from django.contrib.auth.models import Group
+from django.contrib.admin.models import LogEntry
 from .models import Utente, Mezzo, Area_Urbana, Corsa
+
+admin.site.unregister(Group)
+
+@admin.register(LogEntry)
+class LogEntryAdmin(admin.ModelAdmin):
+    list_display = ('action_time', 'user', 'content_type', 'object_repr', 'action_flag', 'change_message')
+    list_filter = ('action_time', 'user', 'action_flag')
+    search_fields = ('object_repr', 'change_message')
+    
+    # Requisito IIN-3: "registrate in un log di sistema non modificabile"
+    # Blocchiamo la possibilità di aggiungere, modificare o cancellare i log!
+    def has_add_permission(self, request): return False
+    def has_change_permission(self, request): return False
+    def has_delete_permission(self, request): return False
 
 @admin.register(Utente)
 class UtenteAdmin(admin.ModelAdmin):

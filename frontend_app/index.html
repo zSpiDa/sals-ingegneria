@@ -83,7 +83,7 @@
         </div>
 
         <div class="mb-2">
-            <input type="text" id="codice-sblocco-input" placeholder="Codice Sblocco (es. 123456)" maxlength="6" class="w-full text-center border-2 border-gray-200 py-3 px-4 rounded-xl text-lg font-bold tracking-widest uppercase focus:outline-none focus:border-blue-500 transition">
+            <input type="text" id="codice-sblocco-input" placeholder="Codice Sblocco (es. 000001)" maxlength="6" class="w-full text-center border-2 border-gray-200 py-3 px-4 rounded-xl text-lg font-bold tracking-widest uppercase focus:outline-none focus:border-blue-500 transition">
         </div>
 
         <div class="flex gap-4 mt-2">
@@ -153,11 +153,14 @@
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
 
+            map.on('click', () => {
+                closeModal('vehicle-modal');
+            });
+            
             trovaPosizioneUtente();
             caricaMezzi();
             caricaAreeUrbane(); 
             
-            // AGGIUNTO: Aggiornamento mappa automatico (Polling ogni 15 secondi) per il "Secondo Utente"
             setInterval(caricaMezzi, 15000); 
         });
 
@@ -214,18 +217,19 @@
                 if (!response.ok) return;
                 const aree = await response.json();
                 aree.forEach(area => {
-                    let color = area.tipologia === 'PARCHEGGIO' ? '#10b981' : '#ef4444';
+                    let color = '#ef4444'; // Default Rosso (Divieto)
+                    if (area.tipologia === 'PARCHEGGIO') color = '#10b981'; // Verde
+                    if (area.tipologia === 'RICARICA') color = '#3b82f6'; // Blu
+
                     L.circle([area.latitudine, area.longitudine], {
-                        color: color, fillColor: color, fillOpacity: 0.15, radius: area.raggio_metri, weight: 2
+                        color: color, fillColor: color, fillOpacity: 0.2, radius: area.raggio_metri, weight: 2
                     }).addTo(map).bindPopup(`<b>${area.nome_zona}</b><br>${area.tipologia}`);
                 });
             } catch (error) { console.error("Errore aree", error); }
         }
 
         async function caricaMezzi() {
-            // Evita di ricaricare la mappa se c'è una corsa attiva (evita fastidi grafici)
             if (activeRideId !== null) return; 
-
             try {
                 const response = await fetch(`${API_BASE_URL}/mezzi/?solo_disponibili=true`);
                 if (!response.ok) return;
@@ -236,8 +240,16 @@
 
                 mezzi.forEach(mezzo => {
                     let iconHtml = '<i class="fa-solid fa-bicycle text-blue-600 bg-white p-2 rounded-full border-2 border-blue-600 shadow-md"></i>';
-                    if (mezzo.tipo === 'AUTO') iconHtml = '<i class="fa-solid fa-car text-purple-600 bg-white p-2 rounded-full border-2 border-purple-600 shadow-md"></i>';
-                    if (mezzo.tipo === 'SCOOTER') iconHtml = '<i class="fa-solid fa-bolt text-yellow-500 bg-white p-2 rounded-full border-2 border-yellow-500 shadow-md"></i>';
+                    let nomeMezzo = "Bicicletta";
+
+                    if (mezzo.tipo === 'AUTO') {
+                        iconHtml = '<i class="fa-solid fa-car text-purple-600 bg-white p-2 rounded-full border-2 border-purple-600 shadow-md"></i>';
+                        nomeMezzo = "Automobile";
+                    }
+                    if (mezzo.tipo === 'SCOOTER') {
+                        iconHtml = '<div class="bg-white rounded-full border-2 border-yellow-500 shadow-md flex items-center justify-center" style="width: 30px; height: 30px; font-size: 16px;">🛴</div>';
+                        nomeMezzo = "Monopattino Elettrico";
+                    }
 
                     const customIcon = L.divIcon({ html: iconHtml, className: 'custom-div-icon', iconSize: [30, 30], iconAnchor: [15, 15] });
                     const marker = L.marker([mezzo.latitudine, mezzo.longitudine], {icon: customIcon}).addTo(map);
@@ -245,7 +257,12 @@
                     marker.on('click', () => {
                         selectedMezzoId = mezzo.id;
                         tipoMezzoSelezionato = mezzo.tipo;
-                        document.getElementById('modal-title').innerText = `${mezzo.tipo}`;
+
+                        // SALVATAGGIO COORDINATE MEZZO PER IL PREVENTIVO
+                        window.mezzoSelezionatoLat = mezzo.latitudine;
+                        window.mezzoSelezionatoLng = mezzo.longitudine;
+
+                        document.getElementById('modal-title').innerText = nomeMezzo;
                         document.getElementById('modal-type').innerText = `ID Veicolo: #${mezzo.id}`;
                         document.getElementById('modal-battery').innerText = `${mezzo.batteria}%`;
                         document.getElementById('modal-autonomy').innerHTML = `<i class="fa-solid fa-road mr-1"></i>~${mezzo.autonomia_km} km`;
@@ -255,30 +272,43 @@
                     });
                     markers.push(marker);
                 });
-            } catch (error) { console.error("Errore caricamento mezzi", error); }
+            } catch (error) {}
         }
 
-        // NUOVA FUNZIONE: Calcolo Preventivo (IF-U03)
-        async function calcolaPreventivo() {
-            const destSelezionata = document.getElementById('destinazione-preventivo').value;
+        async function calcolaPreventivoDaIndirizzo() {
+            let indirizzo = document.getElementById('destinazione-input').value;
             const divRisultato = document.getElementById('risultato-preventivo');
             
-            if (!destSelezionata) {
-                divRisultato.classList.add('hidden');
-                return;
-            }
-
-            const [lat_dest, lng_dest] = destSelezionata.split(',');
+            if (!indirizzo) return;
+            
+            divRisultato.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Ricerca in corso...';
+            divRisultato.classList.remove('hidden');
 
             try {
+                const queryRobusta = encodeURIComponent(indirizzo + ", Italia");
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${queryRobusta}`);
+                const geoData = await geoRes.json();
+                
+                if (geoData.length === 0) {
+                    divRisultato.innerHTML = "Indirizzo non trovato. Inserisci anche la città (es. Via Roma, Milano).";
+                    return;
+                }
+                
+                const lat_dest = parseFloat(geoData[0].lat);
+                const lng_dest = parseFloat(geoData[0].lon);
+
+                // UTILIZZO LE COORDINATE DEL MEZZO PER IL CALCOLO!
+                const lat_partenza_stima = window.mezzoSelezionatoLat || userLat;
+                const lng_partenza_stima = window.mezzoSelezionatoLng || userLng;
+
                 const response = await fetch(`${API_BASE_URL}/corse/stima_preventiva/`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        lat_partenza: userLat,
-                        lng_partenza: userLng,
-                        lat_destinazione: parseFloat(lat_dest),
-                        lng_destinazione: parseFloat(lng_dest),
-                        tipo_mezzo: tipoMezzoSelezionato
+                    body: JSON.stringify({ 
+                        lat_partenza: lat_partenza_stima, 
+                        lng_partenza: lng_partenza_stima, 
+                        lat_destinazione: lat_dest, 
+                        lng_destinazione: lng_dest, 
+                        tipo_mezzo: tipoMezzoSelezionato 
                     })
                 });
                 
@@ -290,14 +320,11 @@
                             <span class="font-bold text-lg">${data.costo_stimato}€</span>
                         </div>
                     `;
-                    divRisultato.classList.remove('hidden');
                 }
-            } catch (e) {
-                showToast("Errore nel calcolo del preventivo", true);
-            }
+            } catch (e) { divRisultato.innerHTML = "Errore di connessione."; }
         }
 
-        async function prenotaMezzo() {
+        async function prenotaMezzo() { 
             if (!selectedMezzoId) return;
             try {
                 const response = await fetch(`${API_BASE_URL}/mezzi/${selectedMezzoId}/prenota/`, {
@@ -316,17 +343,20 @@
         async function sbloccaMezzo() {
             if (!selectedMezzoId) return;
 
-            // VALIDAZIONE CODICE SBLOCCO (IF-U12)
             const codice = document.getElementById('codice-sblocco-input').value.trim();
             if (codice.length !== 6) {
-                showToast("Inserisci un codice valido di 6 caratteri!", true);
+                showToast("Inserisci un codice di 6 caratteri!", true);
                 return;
             }
 
             try {
                 const response = await fetch(`${API_BASE_URL}/corse/avvia/`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ utente: ID_UTENTE_ATTUALE, mezzo: selectedMezzoId })
+                    body: JSON.stringify({ 
+                        utente: ID_UTENTE_ATTUALE, 
+                        mezzo: selectedMezzoId,
+                        codice_sblocco: codice 
+                    })
                 });
                 const data = await response.json();
                 
@@ -335,13 +365,12 @@
                     showToast(`Corsa iniziata! Indossa il casco.`);
                     closeModal('vehicle-modal');
                     caricaMezzi(); 
-                    
                     document.getElementById('active-ride-modal').classList.add('open');
-                    
                     aggiornaCostoInTempoReale();
                     timerCostoInterval = setInterval(aggiornaCostoInTempoReale, 60000);
-
-                } else { showToast(`Errore: ${data.error}`, true); }
+                } else { 
+                    showToast(`${data.error}`, true); 
+                }
             } catch (error) { showToast("Errore di connessione", true); }
         }
 
@@ -396,14 +425,15 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    showToast(`Corsa terminata! Costo finale: ${data.costo_totale}€`);
+                    alert(`✅ CORSA TERMINATA!\n\nHai speso: ${data.costo_totale}€\nGrazie per aver viaggiato con noi.\nTi abbiamo inviato la ricevuta via email.`);
+                    
                     clearInterval(timerCostoInterval);
                     activeRideId = null;
                     isPaused = false;
                     closeModal('active-ride-modal');
                     caricaMezzi(); 
                 } else {
-                    showToast(`Impossibile terminare: ${data.error}`, true);
+                    showToast(`⛔ ATTENZIONE: ${data.error}`, true);
                 }
             } catch (error) { showToast("Errore di connessione", true); }
         }
