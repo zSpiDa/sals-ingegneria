@@ -132,8 +132,8 @@
     </nav>
 
     <script>
-        const API_BASE_URL = 'http://172.20.10.3:8000/api';
-        const ID_UTENTE_ATTUALE = 1; 
+        const API_BASE_URL = 'http://192.168.1.32:8000/api';
+        const ID_UTENTE_ATTUALE = 35; 
 
         let map, markers = [];
         let userLocationMarker = null;
@@ -206,7 +206,8 @@
             if(modalId === 'vehicle-modal') {
                 selectedMezzoId = null;
                 document.getElementById('codice-sblocco-input').value = "";
-                document.getElementById('destinazione-preventivo').value = "";
+                // ECCO LA CORREZIONE: Ora cerca il nuovo ID 'destinazione-input'
+                document.getElementById('destinazione-input').value = "";
                 document.getElementById('risultato-preventivo').classList.add('hidden');
             }
         }

@@ -7,26 +7,31 @@ class Command(BaseCommand):
     help = 'Popola il database con dati di test perfetti'
 
     def handle(self, *args, **kwargs):
-        self.stdout.write("Pulizia del database in corso...")
+        self.stdout.write("Pulizia vecchi dati Mezzi e Aree in corso...")
         Mezzo.objects.all().delete()
         Area_Urbana.objects.all().delete()
 
-        # LA MAGIA È QUI: Cancelliamo l'utente di test se esiste già, così non ci sono mai conflitti di ID!
-        User.objects.filter(username='utente1').delete()
-        Utente.objects.filter(id=1).delete()
-
-        # 1. Creazione dell'Account Base di Django pulito
-        auth_user = User.objects.create_user(username='utente1', email='utente1@test.com', password='password123')
-
-        # 2. Creazione del Profilo Utente forzando l'ID 1 (necessario per il nostro frontend)
-        Utente.objects.create(
-            id=1,
-            user=auth_user,
-            nome='Mario', 
-            cognome='Rossi', 
-            documento='DOC123', 
-            patente_verificata=True
+        # 1. Recuperiamo o creiamo l'utente base (senza cancellarlo per non rompere chiavi esterne)
+        auth_user, created = User.objects.get_or_create(
+            username='utente1',
+            defaults={'email': 'utente1@test.com'}
         )
+        if created:
+            auth_user.set_password('password123')
+            auth_user.save()
+
+        # 2. IL TRUCCO: Recuperiamo il profilo (che sia stato creato dal Signal o da noi)
+        profilo, profile_created = Utente.objects.get_or_create(user=auth_user)
+        
+        # Aggiorniamo i dati del profilo pacificamente
+        profilo.nome = 'Mario'
+        profilo.cognome = 'Rossi'
+        profilo.documento = 'DOC123'
+        profilo.patente_verificata = True
+        profilo.save()
+
+        # Salviamo l'ID reale che il database gli ha assegnato
+        id_reale = profilo.id
 
         # 3. Creazione Aree Urbane 
         Aree = [
@@ -46,7 +51,9 @@ class Command(BaseCommand):
                 latitudine=41.1200 + random.uniform(-0.01, 0.01),
                 longitudine=16.8700 + random.uniform(-0.01, 0.01),
                 batteria=random.randint(40, 100),
-                codice_sblocco=str(i).zfill(6) # Genera: 000001, 000002...
+                codice_sblocco=str(i).zfill(6)
             )
 
-        self.stdout.write(self.style.SUCCESS("Database popolato con successo! Ambiente di test pronto."))
+        self.stdout.write(self.style.SUCCESS("✅ Database popolato con successo! Ambiente di test pronto."))
+        self.stdout.write(self.style.WARNING(f"⚠️ ATTENZIONE: L'ID del tuo utente nel database è: {id_reale}"))
+        self.stdout.write(self.style.WARNING(f"Se in index.html (riga 202) ID_UTENTE_ATTUALE non è {id_reale}, aggiornalo!"))
