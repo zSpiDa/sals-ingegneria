@@ -14,6 +14,7 @@ from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione, PosizioneGP
 from .serializers import UtenteSerializer, MezzoSerializer, AreaUrbanaSerializer, CorsaSerializer, SegnalazioneSerializer, PromozioneSerializer, ChatTicketSerializer
 from .services import RoutingService, MeteoService, GatewayPagamento
 
+import random
 # IF-A04: coefficiente medio di emissione di un'auto privata a benzina (kg di CO2 per km)
 CO2_AUTO_KG_PER_KM = 0.120
 
@@ -99,18 +100,15 @@ class UtenteViewSet(viewsets.ModelViewSet):
 
 
 class MezzoViewSet(viewsets.ModelViewSet):
+    queryset = Mezzo.objects.all()
     serializer_class = MezzoSerializer
-    search_fields = ['tipo']
 
     def get_queryset(self):
-        queryset = Mezzo.objects.all()
-        # Il filtro "solo disponibili" vale per la lista pubblica sulla mappa;
-        # le azioni di dettaglio (prenota, blocca_remoto, ecc.) devono poter
-        # raggiungere i mezzi in qualsiasi stato.
-        if self.action == 'list':
-            mostra_tutti = self.request.query_params.get('mostra_tutti', 'false').lower() == 'true'
-            if not mostra_tutti:
-                return queryset.filter(stato='DISPONIBILE')
+        queryset = super().get_queryset()
+        mostra_tutti = self.request.query_params.get('mostra_tutti', 'false').lower() == 'true'
+        if not mostra_tutti:
+            # Fix: Ignora maiuscole/minuscole nel DB (SQLite è case-sensitive)
+            return queryset.filter(stato__iexact='DISPONIBILE')
         return queryset
 
     @action(detail=True, methods=['post'])
@@ -583,7 +581,7 @@ class MeteoSuggerimentoView(APIView):
 
 class ChatTicketViewSet(viewsets.ModelViewSet):
     """IF-U09 / IF-O07: messaggistica di assistenza utente <-> operatore/chatbot (polling REST)."""
-    queryset = ChatTicket.objects.all()
+    queryset = ChatTicket.objects.all().order_by('timestamp')
     serializer_class = ChatTicketSerializer
 
     # Risposte automatiche del chatbot in base a parole chiave
@@ -655,3 +653,18 @@ class ChatTicketViewSet(viewsets.ModelViewSet):
             if any(k in t for k in chiavi):
                 return risposta
         return "Grazie per averci contattato. La tua richiesta è stata registrata: un operatore ti risponderà al più presto."
+
+    class MeteoView(APIView):
+        def get(self, request):
+            condizione = random.choice(['Soleggiato', 'Pioggia', 'Vento Forte'])
+            consigli = {
+                'Soleggiato': ('BICI', 'Giornata perfetta per pedalare!'),
+                'Pioggia': ('AUTO', 'Riparati dalla pioggia in auto.'),
+                'Vento Forte': ('AUTO', 'Troppo vento, meglio un veicolo chiuso.')
+            }
+            return Response({
+                "condizione": condizione,
+                "temperatura_c": random.randint(10, 30),
+                "mezzo_consigliato": consigli[condizione][0],
+                "motivazione": consigli[condizione][1]
+        })
