@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.contrib.admin.models import LogEntry
-from .models import Utente, Mezzo, Area_Urbana, Corsa
+from .models import Utente, Mezzo, Area_Urbana, Corsa, Promozione, ChatTicket
 
 admin.site.unregister(Group)
 
@@ -47,3 +47,14 @@ class CorsaAdmin(admin.ModelAdmin):
     search_fields = ('utente__cognome', 'utente__documento', 'mezzo__id')
     # Filtra per data e per tipo di mezzo usato
     list_filter = ('inizio', 'mezzo__tipo')
+@admin.register(Promozione)
+class PromozioneAdmin(admin.ModelAdmin):
+    list_display = ('codice', 'tipo_sconto', 'valore', 'data_scadenza', 'attiva')
+    list_filter = ('tipo_sconto', 'attiva')
+    search_fields = ('codice',)
+
+@admin.register(ChatTicket)
+class ChatTicketAdmin(admin.ModelAdmin):
+    list_display = ('id', 'utente', 'autore', 'messaggio', 'timestamp', 'risolto')
+    list_filter = ('risolto', 'timestamp')
+    search_fields = ('utente__nome', 'utente__cognome', 'messaggio')

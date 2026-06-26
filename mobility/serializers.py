@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione, PosizioneGPS
+from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione, PosizioneGPS, Promozione, ChatTicket
 
 class UtenteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -30,7 +30,7 @@ class AreaUrbanaSerializer(serializers.ModelSerializer):
 class SegnalazioneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Segnalazione
-        fields = ['id', 'utente', 'mezzo', 'descrizione', 'data_segnalazione', 'risolta']
+        fields = ['id', 'utente', 'mezzo', 'categoria', 'descrizione', 'data_segnalazione', 'risolta']
         read_only_fields = ['data_segnalazione', 'risolta']
 
 class PosizioneGPSSerializer(serializers.ModelSerializer):
@@ -54,12 +54,34 @@ class CorsaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'utente', 'mezzo', 'inizio', 
             'fine', 'costo_totale',
+            'promozione', 'area_rilascio', 'distanza_km',
             'utente_dettagli', 'mezzo_dettagli', 'percorso'
         ]
-        read_only_fields = ['costo_totale']
+        read_only_fields = ['costo_totale', 'distanza_km', 'area_rilascio']
 
     def validate(self, data):
         utente = data.get('utente')
         if utente and utente.sospensione:
             raise serializers.ValidationError("L'account utente è sospeso per vandalismi o insoluti.")
         return data
+
+
+class PromozioneSerializer(serializers.ModelSerializer):
+    valida = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Promozione
+        fields = ['id', 'codice', 'tipo_sconto', 'valore', 'data_scadenza', 'attiva', 'valida']
+
+    def get_valida(self, obj):
+        return obj.is_valida()
+
+
+class ChatTicketSerializer(serializers.ModelSerializer):
+    autore = serializers.CharField(read_only=True)
+    timestamp = serializers.DateTimeField(format="%d/%m/%Y %H:%M:%S", read_only=True)
+
+    class Meta:
+        model = ChatTicket
+        fields = ['id', 'utente', 'operatore', 'autore', 'messaggio', 'timestamp', 'risolto', 'da_bot']
+        read_only_fields = ['timestamp', 'autore']
