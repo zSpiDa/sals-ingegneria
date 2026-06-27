@@ -15,7 +15,6 @@ from .models import Utente, Mezzo, Area_Urbana, Corsa, Segnalazione, PosizioneGP
 from .serializers import UtenteSerializer, MezzoSerializer, AreaUrbanaSerializer, CorsaSerializer, SegnalazioneSerializer, PromozioneSerializer, ChatTicketSerializer
 from .services import RoutingService, GatewayPagamento
 
-import random
 # IF-A04: coefficiente medio di emissione di un'auto privata a benzina (kg di CO2 per km)
 CO2_AUTO_KG_PER_KM = 0.120
 
@@ -87,10 +86,6 @@ class MezzoViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         mostra_tutti = self.request.query_params.get('mostra_tutti', 'false').lower() == 'true'
         if not mostra_tutti:
-<<<<<<< HEAD
-=======
-            # Fix: Ignora maiuscole/minuscole nel DB (SQLite è case-sensitive)
->>>>>>> 9dc3e03df850fd3a51e04c79251c5135f55cc619
             return queryset.filter(stato__iexact='DISPONIBILE')
         return queryset
 
@@ -389,10 +384,6 @@ class RoutingView(APIView):
 
 
 class ChatTicketViewSet(viewsets.ModelViewSet):
-<<<<<<< HEAD
-=======
-    """IF-U09 / IF-O07: messaggistica di assistenza utente <-> operatore/chatbot (polling REST)."""
->>>>>>> 9dc3e03df850fd3a51e04c79251c5135f55cc619
     queryset = ChatTicket.objects.all().order_by('timestamp')
     serializer_class = ChatTicketSerializer
 
@@ -442,7 +433,6 @@ class ChatTicketViewSet(viewsets.ModelViewSet):
             if any(k in t for k in chiavi): return risposta
         return "Grazie per averci contattato. La tua richiesta è stata registrata: un operatore ti risponderà al più presto."
 
-<<<<<<< HEAD
 
 class MeteoView(APIView):
     def get(self, request):
@@ -458,19 +448,4 @@ class MeteoView(APIView):
             "temperatura_c": random.randint(12, 28),
             "mezzo_consigliato": consigli[condizione][0],
             "motivazione": consigli[condizione][1]
-=======
-    class MeteoView(APIView):
-        def get(self, request):
-            condizione = random.choice(['Soleggiato', 'Pioggia', 'Vento Forte'])
-            consigli = {
-                'Soleggiato': ('BICI', 'Giornata perfetta per pedalare!'),
-                'Pioggia': ('AUTO', 'Riparati dalla pioggia in auto.'),
-                'Vento Forte': ('AUTO', 'Troppo vento, meglio un veicolo chiuso.')
-            }
-            return Response({
-                "condizione": condizione,
-                "temperatura_c": random.randint(10, 30),
-                "mezzo_consigliato": consigli[condizione][0],
-                "motivazione": consigli[condizione][1]
->>>>>>> 9dc3e03df850fd3a51e04c79251c5135f55cc619
         })
