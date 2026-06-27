@@ -36,7 +36,7 @@ class Command(BaseCommand):
         # 3. Creazione Aree Urbane 
         Aree = [
             {'nome': 'Parcheggio Porto', 'tipo': 'PARCHEGGIO', 'lat': 41.1270, 'lng': 16.8680, 'r': 150},
-            {'nome': 'Divieto Centro Storico', 'tipo': 'DIVIETO', 'lat': 41.1255, 'lng': 16.8720, 'r': 200},
+            {'nome': 'Divieto Centro Storico', 'tipo': 'VIETATA', 'lat': 41.1255, 'lng': 16.8720, 'r': 200},
             {'nome': 'Colonnina Stazione', 'tipo': 'RICARICA', 'lat': 41.1171, 'lng': 16.8718, 'r': 100},
         ]
         for a in Aree:

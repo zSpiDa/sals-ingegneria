@@ -5,7 +5,7 @@ from .views import (
     SegnalazioneViewSet, PromozioneViewSet,
     AnalyticsCO2View, AnalyticsUtilizzoView, AnalyticsReportView,
     OperatoreAllerteView, OperatoreConsoleView,
-    RoutingView, MeteoSuggerimentoView, ChatTicketViewSet,
+    RoutingView, MeteoView, ChatTicketViewSet,
 )
 
 router = DefaultRouter()
@@ -19,14 +19,17 @@ router.register(r'chat', ChatTicketViewSet, basename='chat')
 
 urlpatterns = [
     path('', include(router.urls)),
+    
     # Blocco 2 - Analytics & Amministrazione
     path('analytics/co2/', AnalyticsCO2View.as_view(), name='analytics-co2'),
     path('analytics/utilizzo/', AnalyticsUtilizzoView.as_view(), name='analytics-utilizzo'),
     path('analytics/report/', AnalyticsReportView.as_view(), name='analytics-report'),
+    
     # Blocco 2 - Console Operatore
     path('operatore/allerte/', OperatoreAllerteView.as_view(), name='operatore-allerte'),
     path('operatore/console/', OperatoreConsoleView.as_view(), name='operatore-console'),
+    
     # Blocco 3 - Routing & Meteo
     path('routing/percorso/', RoutingView.as_view(), name='routing-percorso'),
-    path('meteo/suggerimento/', MeteoSuggerimentoView.as_view(), name='meteo-suggerimento'),
+    path('meteo/suggerimento/', MeteoView.as_view(), name='meteo-suggerimento'),
 ]
