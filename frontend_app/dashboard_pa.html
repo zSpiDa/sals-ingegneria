@@ -21,6 +21,10 @@
                 <p class="text-gray-500 mt-1">Analytics flotta, impatto ambientale e reportistica - Ultimi 30 giorni</p>
             </div>
             <button onclick="caricaDatiPA()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow"><i class="fa-solid fa-arrows-rotate mr-2"></i>Aggiorna Dati</button>
+            <div class="flex gap-2">
+               
+                <button onclick="esportaCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow"><i class="fa-solid fa-file-csv mr-2"></i>Esporta CSV</button>
+            </div>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -139,7 +143,35 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
         }
+        async function esportaCSV() {
+    try {
+        const resReport = await fetch(`${API_BASE_URL}/analytics/report/?giorni=30`);
+        const datiReport = await resReport.json();
 
+        // Creazione del contenuto CSV
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Metrica,Valore\n";
+        csvContent += `Periodo Analizzato (Giorni),${datiReport.periodo_giorni}\n`;
+        csvContent += `Ricavi Totali Flotta (Eur),${datiReport.ricavi_totali_eur}\n`;
+        csvContent += `Numero Totale Corse,${datiReport.numero_corse}\n`;
+        csvContent += `Numero Segnalazioni Guasti,${datiReport.numero_segnalazioni}\n`;
+        csvContent += `Corse Medie per Mezzo,${datiReport.efficienza.corse_per_mezzo}\n`;
+        csvContent += `Percentuale Flotta in Manutenzione,${datiReport.efficienza.percentuale_flotta_in_manutenzione}%\n`;
+
+        // Logica per avviare il download nel browser (Punto 4 del UC-S2-09)
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "report_mobilita_zootropolis.csv");
+        document.body.appendChild(link); // Necessario per Firefox
+        
+        link.click(); 
+        document.body.removeChild(link);
+        
+    } catch (error) {
+        alert("Errore durante l'esportazione del report.");
+    }
+}
         // Carica i dati appena la pagina si apre
         caricaDatiPA();
     </script>

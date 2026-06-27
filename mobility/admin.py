@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
 from django.contrib.admin.models import LogEntry
-from .models import Utente, Mezzo, Area_Urbana, Corsa, Promozione, ChatTicket
+from .models import Utente, Mezzo, Area_Urbana, Corsa, Promozione, ChatTicket, Segnalazione
 
 admin.site.unregister(Group)
 
@@ -58,3 +58,9 @@ class ChatTicketAdmin(admin.ModelAdmin):
     list_display = ('id', 'utente', 'autore', 'messaggio', 'timestamp', 'risolto')
     list_filter = ('risolto', 'timestamp')
     search_fields = ('utente__nome', 'utente__cognome', 'messaggio')
+    
+@admin.register(Segnalazione)
+class SegnalazioneAdmin(admin.ModelAdmin):
+    list_display = ('id', 'utente', 'mezzo', 'categoria', 'data_segnalazione', 'risolta')
+    list_filter = ('risolta', 'categoria')
+    search_fields = ('utente__nome', 'mezzo__id', 'descrizione')
