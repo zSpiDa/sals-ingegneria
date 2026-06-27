@@ -5,7 +5,11 @@ from .views import (
     SegnalazioneViewSet, PromozioneViewSet,
     AnalyticsCO2View, AnalyticsUtilizzoView, AnalyticsReportView,
     OperatoreAllerteView, OperatoreConsoleView,
+<<<<<<< HEAD
     RoutingView, MeteoView, ChatTicketViewSet,
+=======
+    RoutingView, MeteoSuggerimentoView, ChatTicketViewSet, MeteoView,
+>>>>>>> 9dc3e03df850fd3a51e04c79251c5135f55cc619
 )
 
 router = DefaultRouter()
@@ -31,5 +35,10 @@ urlpatterns = [
     
     # Blocco 3 - Routing & Meteo
     path('routing/percorso/', RoutingView.as_view(), name='routing-percorso'),
+<<<<<<< HEAD
     path('meteo/suggerimento/', MeteoView.as_view(), name='meteo-suggerimento'),
+=======
+    path('meteo/suggerimento/', MeteoSuggerimentoView.as_view(), name='meteo-suggerimento'),
+    
+>>>>>>> 9dc3e03df850fd3a51e04c79251c5135f55cc619
 ]
