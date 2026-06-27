@@ -9,26 +9,43 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { margin: 0; padding: 0; display: flex; height: 100vh; font-family: sans-serif; background: #1f2937; }
-        #sidebar { width: 350px; background: #111827; color: white; padding: 20px; overflow-y: auto; }
+        #sidebar { width: 380px; background: #111827; color: white; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
         #map { flex-grow: 1; }
         .mezzo-card { background: #374151; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid gray; }
         .status-DISPONIBILE { border-left-color: #10b981; }
         .status-IN_USO { border-left-color: #3b82f6; }
         .status-PRENOTATO { border-left-color: #f59e0b; }
         .status-MANUTENZIONE { border-left-color: #ef4444; }
+        
+        /* Stile personalizzato scrollbar per la sidebar */
+        #sidebar::-webkit-scrollbar { width: 8px; }
+        #sidebar::-webkit-scrollbar-track { background: #1f2937; }
+        #sidebar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h2 class="text-2xl font-bold mb-6 text-blue-400"><i class="fa-solid fa-satellite-dish mr-2"></i>Flotta Live</h2>
-        <div class="flex gap-2 mb-4 text-sm font-bold">
-            <button onclick="caricaFlotta('DISPONIBILE')" class="bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-white">Disponibili</button>
-            <button onclick="caricaFlotta('IN_USO')" class="bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-white">In Uso</button>
-            <button onclick="caricaFlotta('MANUTENZIONE')" class="bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-white">Guasti</button>
-            <button onclick="caricaFlotta('TUTTI')" class="bg-gray-500 hover:bg-gray-600 px-2 py-1 rounded text-white">Tutti</button>
+        <h2 class="text-2xl font-bold mb-4 text-blue-400"><i class="fa-solid fa-satellite-dish mr-2"></i>Flotta Live</h2>
+        
+        <div class="mb-6 bg-gray-900 rounded-lg p-3 border border-gray-700 shadow-inner">
+            <h3 class="text-gray-400 text-xs font-bold uppercase mb-2 flex justify-between items-center">
+                Allerte di Sistema 
+                <span id="badge-notifiche" class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+            </h3>
+            <div id="lista-notifiche" class="space-y-2 max-h-32 overflow-y-auto text-xs">
+                <div class="text-gray-500 italic">Caricamento allerte...</div>
+            </div>
         </div>
-        <div id="lista-mezzi">Caricamento flotta in corso...</div>
+
+        <div class="flex flex-wrap gap-2 mb-4 text-xs font-bold">
+            <button onclick="caricaFlottaOperatore('DISPONIBILE')" class="bg-green-500 hover:bg-green-600 px-2 py-1.5 rounded text-white cursor-pointer w-[48%]">Disponibili</button>
+            <button onclick="caricaFlottaOperatore('IN_USO')" class="bg-blue-500 hover:bg-blue-600 px-2 py-1.5 rounded text-white cursor-pointer w-[48%]">In Uso</button>
+            <button onclick="caricaFlottaOperatore('MANUTENZIONE')" class="bg-red-500 hover:bg-red-600 px-2 py-1.5 rounded text-white cursor-pointer w-[48%]">Guasti</button>
+            <button onclick="caricaFlottaOperatore('TUTTI')" class="bg-gray-500 hover:bg-gray-600 px-2 py-1.5 rounded text-white cursor-pointer w-[48%]">Mostra Tutti</button>
+        </div>
+        
+        <div id="lista-mezzi" class="flex-1 overflow-y-auto pr-1">Caricamento flotta in corso...</div>
     </div>
 
     <div id="map"></div>
@@ -37,48 +54,140 @@
         const API_BASE_URL = 'http://192.168.1.32:8000/api';
         let map = L.map('map').setView([45.4642, 9.1900], 13);
         let markers = [];
+        let filtroAttuale = 'TUTTI';
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
 
-        async function caricaFlottaOperatore() {
+        // --- FUNZIONE 1: CARICA NOTIFICHE (Requisito IF-O05) ---
+        async function caricaNotifiche() {
             try {
-                // Chiama l'API che restituisce TUTTI i mezzi, non solo quelli disponibili
-                const response = await fetch(`${API_BASE_URL}/mezzi/mappa_flotta/`);
+                // Richiede mezzi guasti e mezzi con batteria sotto il 15%
+                const res = await fetch(`${API_BASE_URL}/operatore/allerte/?soglia_batteria=15`);
+                const data = await res.json();
+                
+                document.getElementById('badge-notifiche').innerText = data.totale;
+                const contenitore = document.getElementById('lista-notifiche');
+                contenitore.innerHTML = '';
+                
+                if (data.totale === 0) {
+                    contenitore.innerHTML = '<div class="text-gray-500 italic p-1">Nessuna allerta critica.</div>';
+                    return;
+                }
+
+                data.allerte.forEach(allerta => {
+                    const isBatteria = allerta.tipo === 'BATTERIA_SCARICA';
+                    const icona = isBatteria ? '<i class="fa-solid fa-battery-empty text-yellow-500"></i>' : '<i class="fa-solid fa-triangle-exclamation text-red-500"></i>';
+                    const borderCol = isBatteria ? 'border-yellow-500' : 'border-red-500';
+                    
+                    contenitore.innerHTML += `
+                        <div class="bg-gray-800 p-2 rounded border-l-2 ${borderCol} flex gap-2 items-center">
+                            ${icona} <span class="text-gray-300">${allerta.messaggio}</span>
+                        </div>
+                    `;
+                });
+            } catch (e) { console.error("Errore fetch notifiche", e); }
+        }
+
+        // --- FUNZIONE 2: CARICA FLOTTA SULLA MAPPA ---
+        async function caricaFlottaOperatore(filtro = null) {
+            if(filtro) filtroAttuale = filtro;
+            try {
+                const response = await fetch(`${API_BASE_URL}/mezzi/?mostra_tutti=true`);
                 const mezzi = await response.json();
                 
                 const listaDiv = document.getElementById('lista-mezzi');
                 listaDiv.innerHTML = '';
+                
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
 
                 mezzi.forEach(mezzo => {
-                    // Imposta i colori in base allo stato
+                    const statoUpper = mezzo.stato.toUpperCase();
+                    if (filtroAttuale !== 'TUTTI' && statoUpper !== filtroAttuale) return;
+
+                    // Assegnazione colori
                     let color = 'gray';
-                    if(mezzo.stato === 'DISPONIBILE') color = '#10b981'; // Verde
-                    if(mezzo.stato === 'IN_USO') color = '#3b82f6'; // Blu
-                    if(mezzo.stato === 'PRENOTATO') color = '#f59e0b'; // Giallo
-                    if(mezzo.stato === 'MANUTENZIONE') color = '#ef4444'; // Rosso
+                    if(statoUpper === 'DISPONIBILE') color = '#10b981';
+                    if(statoUpper === 'IN_USO') color = '#3b82f6';
+                    if(statoUpper === 'PRENOTATO') color = '#f59e0b';
+                    if(statoUpper === 'MANUTENZIONE') color = '#ef4444';
 
-                    // Crea il marker sulla mappa
-                    L.circleMarker([mezzo.latitudine, mezzo.longitudine], {
+                    // Lógica rendering Pulsanti dinamici (Blocco vs Sblocco)
+                    let bottoneAzioneHtml = '';
+                    if (statoUpper === 'MANUTENZIONE') {
+                        bottoneAzioneHtml = `<button onclick="sbloccaMezzo(${mezzo.id})" class="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-1.5 rounded mt-2 shadow-sm"><i class="fa-solid fa-wrench mr-1"></i> Segna Riparato (Sblocca)</button>`;
+                    } else {
+                        bottoneAzioneHtml = `<button onclick="forzaBlocco(${mezzo.id})" class="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 rounded mt-2 shadow-sm"><i class="fa-solid fa-lock mr-1"></i> Forza Blocco / Guasto</button>`;
+                    }
+
+                    // Creazione Marker su Leaflet
+                    let marker = L.circleMarker([mezzo.latitudine, mezzo.longitudine], {
                         radius: 8, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
-                    }).addTo(map).bindPopup(`<b>Veicolo #${mezzo.id} (${mezzo.tipo})</b><br>Stato: ${mezzo.stato}<br>Batteria: ${mezzo.batteria}%`);
+                    }).addTo(map).bindPopup(`
+                        <b>Veicolo #${mezzo.id} (${mezzo.tipo})</b><br>
+                        Stato: <span style="color:${color}; font-weight:bold;">${mezzo.stato}</span><br>
+                        Batteria: ${mezzo.batteria}%<br>
+                        ${bottoneAzioneHtml.replace('w-full', 'w-full mt-2')} `);
+                    markers.push(marker);
 
-                    // Aggiunge la card nella barra laterale
+                    // Creazione Card nella barra laterale
                     listaDiv.innerHTML += `
-                        <div class="mezzo-card status-${mezzo.stato}">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="font-bold text-lg">ID #${mezzo.id} - ${mezzo.tipo}</span>
-                                <span class="text-sm px-2 py-1 bg-gray-700 rounded">${mezzo.batteria}% <i class="fa-solid fa-battery-half"></i></span>
+                        <div class="mezzo-card status-${statoUpper}">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-base">ID #${mezzo.id} - ${mezzo.tipo}</span>
+                                <span class="text-xs px-2 py-0.5 bg-gray-700 rounded-full font-mono">${mezzo.batteria}% <i class="fa-solid fa-battery-half"></i></span>
                             </div>
-                            <div class="text-sm text-gray-300">Stato attuale: <b style="color:${color}">${mezzo.stato}</b></div>
+                            <div class="text-xs text-gray-300">Stato: <b style="color:${color}">${mezzo.stato}</b></div>
+                            ${bottoneAzioneHtml}
                         </div>
                     `;
                 });
-            } catch (e) {
-                console.error("Errore server");
-            }
+            } catch (e) { console.error("Errore server", e); }
         }
 
-        caricaFlottaOperatore();
-        setInterval(caricaFlottaOperatore, 10000); // Ricarica la flotta ogni 10 secondi
+        // --- FUNZIONE 3: AZIONE - FORZA BLOCCO (Requisito IF-O09) ---
+        async function forzaBlocco(id) {
+            if(!confirm(`Vuoi bloccare il mezzo #${id} e metterlo in MANUTENZIONE?`)) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/mezzi/${id}/blocca_remoto/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ stato: 'MANUTENZIONE' })
+                });
+                if (res.ok) { 
+                    caricaFlottaOperatore(); 
+                    caricaNotifiche(); // Aggiorna pannello notifiche per mostrare il nuovo guasto
+                } else { alert("Errore durante l'operazione."); }
+            } catch (e) { alert("Errore di rete."); }
+        }
+
+        // --- FUNZIONE 4: AZIONE - SBLOCCA / RIPARA (Requisito IF-O07) ---
+        async function sbloccaMezzo(id) {
+            if(!confirm(`Il mezzo #${id} è stato riparato? Confermi di rimetterlo DISPONIBILE?`)) return;
+            try {
+                const res = await fetch(`${API_BASE_URL}/mezzi/${id}/sblocca_remoto/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) { 
+                    caricaFlottaOperatore(); 
+                    caricaNotifiche();
+                } else { alert("Errore durante lo sblocco."); }
+            } catch (e) { alert("Errore di rete."); }
+        }
+
+        // --- AVVIO E POLLING AUTOMATICO ---
+        function inizializzaDashboard() {
+            caricaNotifiche();
+            caricaFlottaOperatore();
+            
+            // Aggiorna silenziosamente mappa e notifiche ogni 10 secondi
+            setInterval(() => {
+                caricaNotifiche();
+                caricaFlottaOperatore();
+            }, 10000);
+        }
+
+        inizializzaDashboard();
     </script>
 </body>
 </html>

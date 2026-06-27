@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Comune - Cruscotto Smart Mobility</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #f3f4f6; font-family: sans-serif; }
+        .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="p-8 text-gray-800">
+
+    <div class="max-w-7xl mx-auto">
+        
+        <header class="mb-8 border-b-2 border-gray-200 pb-4 flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-bold text-indigo-700"><i class="fa-solid fa-building-columns mr-3"></i>Cruscotto Pubblica Amministrazione</h1>
+                <p class="text-gray-500 mt-1">Analytics flotta, impatto ambientale e reportistica - Ultimi 30 giorni</p>
+            </div>
+            <button onclick="caricaDatiPA()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow"><i class="fa-solid fa-arrows-rotate mr-2"></i>Aggiorna Dati</button>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="card border-l-4 border-green-500">
+                <div class="text-sm text-gray-500 font-bold uppercase">CO2 Risparmiata</div>
+                <div class="text-3xl font-bold text-green-600 mt-2" id="kpi-co2">-- kg</div>
+                <div class="text-xs text-gray-400 mt-1">Rispetto ad auto private</div>
+            </div>
+            <div class="card border-l-4 border-blue-500">
+                <div class="text-sm text-gray-500 font-bold uppercase">Corse Totali</div>
+                <div class="text-3xl font-bold text-blue-600 mt-2" id="kpi-corse">--</div>
+                <div class="text-xs text-gray-400 mt-1">Periodo selezionato</div>
+            </div>
+            <div class="card border-l-4 border-yellow-500">
+                <div class="text-sm text-gray-500 font-bold uppercase">Ricavi Flotta</div>
+                <div class="text-3xl font-bold text-yellow-600 mt-2" id="kpi-ricavi">-- €</div>
+                <div class="text-xs text-gray-400 mt-1">Lordo generato</div>
+            </div>
+            <div class="card border-l-4 border-red-500">
+                <div class="text-sm text-gray-500 font-bold uppercase">Mezzi in Manutenzione</div>
+                <div class="text-3xl font-bold text-red-600 mt-2" id="kpi-manutenzione">-- %</div>
+                <div class="text-xs text-gray-400 mt-1">Stato di efficienza</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="card">
+                <h3 class="text-lg font-bold text-gray-700 mb-4"><i class="fa-solid fa-chart-pie mr-2 text-indigo-500"></i>Utilizzo per Tipo di Mezzo</h3>
+                <div class="relative h-64 w-full flex justify-center">
+                    <canvas id="chartTipoMezzo"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3 class="text-lg font-bold text-gray-700 mb-4"><i class="fa-solid fa-chart-line mr-2 text-indigo-500"></i>Traffico per Fascia Oraria (24h)</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="chartOrari"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://192.168.1.32:8000/api';
+        let chartTipoMezzoInst = null;
+        let chartOrariInst = null;
+
+        async function caricaDatiPA() {
+            try {
+                // 1. Fetch Dati Utilizzo
+                const resUtilizzo = await fetch(`${API_BASE_URL}/analytics/utilizzo/`);
+                const datiUtilizzo = await resUtilizzo.json();
+
+                // 2. Fetch Dati CO2
+                const resCO2 = await fetch(`${API_BASE_URL}/analytics/co2/`);
+                const datiCO2 = await resCO2.json();
+
+                // 3. Fetch Report 30 giorni
+                const resReport = await fetch(`${API_BASE_URL}/analytics/report/?giorni=30`);
+                const datiReport = await resReport.json();
+
+                // Aggiorna i riquadri numerici (KPI)
+                document.getElementById('kpi-co2').innerText = `${datiCO2.co2_risparmiata_kg} kg`;
+                document.getElementById('kpi-corse').innerText = datiReport.numero_corse;
+                document.getElementById('kpi-ricavi').innerText = `${datiReport.ricavi_totali_eur.toFixed(2)} €`;
+                document.getElementById('kpi-manutenzione').innerText = `${datiReport.efficienza.percentuale_flotta_in_manutenzione}%`;
+
+                // Disegna Grafico a Torta (Utilizzo per Tipo)
+                const labelsTipo = Object.keys(datiUtilizzo.corse_per_tipo);
+                const dataTipo = Object.values(datiUtilizzo.corse_per_tipo);
+                disegnaChartTorta(labelsTipo, dataTipo);
+
+                // Disegna Grafico a Barre (Fasce Orarie)
+                const labelsOre = Array.from({length: 24}, (_, i) => `${i}:00`);
+                const dataOre = datiUtilizzo.corse_per_ora;
+                disegnaChartBarre(labelsOre, dataOre);
+
+            } catch (error) {
+                console.error("Errore nel caricamento dati PA:", error);
+                alert("Impossibile contattare il server. Assicurati che Django sia avviato su 192.168.1.32:8000");
+            }
+        }
+
+        function disegnaChartTorta(labels, data) {
+            const ctx = document.getElementById('chartTipoMezzo').getContext('2d');
+            if(chartTipoMezzoInst) chartTipoMezzoInst.destroy();
+            chartTipoMezzoInst = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'], // Colori Tailwind
+                        borderWidth: 1
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        function disegnaChartBarre(labels, data) {
+            const ctx = document.getElementById('chartOrari').getContext('2d');
+            if(chartOrariInst) chartOrariInst.destroy();
+            chartOrariInst = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Numero di Corse',
+                        data: data,
+                        backgroundColor: '#6366f1',
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // Carica i dati appena la pagina si apre
+        caricaDatiPA();
+    </script>
+</body>
+</html>
